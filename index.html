@@ -227,7 +227,7 @@
             </div>
             <div class="flex flex-col md:flex-row justify-center items-center gap-4">
                 <div class="w-full md:w-1/2 lg:w-2/5">
-                    <label for="budget-slider" class="block text-sm font-medium text-secondary text-center mb-1">Budget: <span id="budget-value" class="text-primary font-bold">1m</span> GP</label>
+                    <label for="budget-slider" class="block text-sm font-medium text-secondary text-center mb-1">Budget: <span id="budget-value" class="text-primary font-bold">1m GP</span></label>
                     <input id="budget-slider" type="range" min="0" max="18" value="5" step="1" class="w-full h-2 rounded-lg appearance-none cursor-pointer">
                 </div>
                 <button id="suggest-item-btn" class="suggest-btn px-6 py-2 rounded-lg font-medium w-full md:w-auto">Suggest Item</button>
@@ -1098,17 +1098,25 @@
             const index = parseInt(budgetSlider.value);
             const value = budgetSteps[index];
             
+            itemNameInput.value = ''; // Clear search bar on slider change
+
             if (value === Number.MAX_SAFE_INTEGER) {
                  budgetValue.innerHTML = `<span style="color: #e7bc1c;">$HIGH ROLLER$</span>`;
             } else {
                 budgetValue.style.color = ''; // Reset color
+                let displayText = '';
                 if (value >= 1000000000) {
-                    budgetValue.textContent = (value / 1000000000).toFixed(0) + 'b';
+                    displayText = (value / 1000000000).toFixed(0) + 'b';
                 } else if (value >= 1000000) {
-                    budgetValue.textContent = (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'm';
+                    displayText = (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'm';
+                } else {
+                    displayText = (value / 1000).toFixed(0) + 'k';
                 }
-                else {
-                    budgetValue.textContent = (value / 1000).toFixed(0) + 'k';
+                
+                if (value >= 10000000 && value <= 250000000) {
+                    budgetValue.innerHTML = `<span style="color: #0bf87b;">${displayText}</span> GP`;
+                } else {
+                    budgetValue.textContent = `${displayText} GP`;
                 }
             }
             filterItemsByBudget();
