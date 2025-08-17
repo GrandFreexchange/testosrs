@@ -14,6 +14,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Enhanced OSRS Price & Flipping Tool</title>
+    <!-- NEW: Favicon -->
+    <link rel="icon" type="image/png" href="https://oldschool.runescape.wiki/images/Coins_10000.png">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js for graphs -->
@@ -1096,15 +1098,18 @@
             const index = parseInt(budgetSlider.value);
             const value = budgetSteps[index];
             
-            if (value >= 1000000000) {
-                budgetValue.textContent = (value / 1000000000).toFixed(0) + 'b';
-            } else if (value >= 1000000) {
-                budgetValue.textContent = (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'm';
-            } else if (value === Number.MAX_SAFE_INTEGER) {
-                 budgetValue.textContent = "$HIGH ROLLER$";
-            }
-            else {
-                budgetValue.textContent = (value / 1000).toFixed(0) + 'k';
+            if (value === Number.MAX_SAFE_INTEGER) {
+                 budgetValue.innerHTML = `<span style="color: #e7bc1c;">$HIGH ROLLER$</span>`;
+            } else {
+                budgetValue.style.color = ''; // Reset color
+                if (value >= 1000000000) {
+                    budgetValue.textContent = (value / 1000000000).toFixed(0) + 'b';
+                } else if (value >= 1000000) {
+                    budgetValue.textContent = (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'm';
+                }
+                else {
+                    budgetValue.textContent = (value / 1000).toFixed(0) + 'k';
+                }
             }
             filterItemsByBudget();
             updatePlaceholder();
