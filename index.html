@@ -200,13 +200,24 @@
             <!-- Left Column: Item Info & Prices -->
             <div class="lg:col-span-1 flex flex-col gap-6">
                 <!-- Item Info & Price Box -->
-                <div class="bg-main p-6 rounded-lg border border-custom space-y-6">
+                <div class="bg-main p-6 rounded-lg border border-custom space-y-6 relative">
                     <div id="item-header" class="flex items-center">
                         <img id="item-icon" src="" alt="Item Icon" class="w-12 h-12 mr-4 bg-dark-contrast rounded-full">
                         <h2 id="item-name-title" class="text-2xl font-bold text-primary"></h2>
                     </div>
                     <div id="price-info" class="space-y-3 text-lg"></div>
                     <div id="additional-info" class="space-y-3 text-base pt-3 border-t border-custom"></div>
+                    
+                    <!-- Confidence Explanation Modal -->
+                    <div id="confidence-modal" class="absolute z-10 bg-dark-contrast p-4 rounded-lg border border-custom shadow-lg text-sm hidden" style="bottom: 1.5rem; left: 1.5rem; right: 1.5rem;">
+                        <h4 class="font-bold mb-2 text-primary">Trend Confidence</h4>
+                        <p class="text-secondary">Confidence is a rating based on the item's 24-hour trade volume. High volume suggests the price trend is more reliable.</p>
+                        <ul class="list-disc list-inside text-secondary mt-2 space-y-1 text-xs">
+                            <li><strong class="text-primary">High:</strong> >50k volume or >5x buy limit.</li>
+                            <li><strong class="text-primary">Medium:</strong> >10k volume or >1x buy limit.</li>
+                            <li><strong class="text-primary">Low:</strong> All other cases.</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
 
@@ -226,17 +237,30 @@
                 </div>
 
                 <!-- Profit Calculator -->
-                <div id="profit-calculator" class="bg-dark-contrast rounded-lg shadow-inner w-full mt-6 hidden">
+                <div id="profit-calculator" class="bg-dark-contrast rounded-lg shadow-inner w-full mt-6 hidden relative z-20">
                     <!-- Header is now a clickable toggle -->
                     <div id="calculator-header" class="flex items-center justify-between p-3 cursor-pointer">
                         <h3 class="text-lg font-bold text-primary flex items-center">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 lucide lucide-calculator"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><line x1="8" x2="8" y1="14" y2="18"/><line x1="12" x2="12" y1="14" y2="18"/></svg>
                             Profit Calculator
+                            <!-- Help Icon -->
+                            <svg id="calc-help-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-2 h-5 w-5 text-secondary hover:text-primary cursor-pointer transition-colors"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
                         </h3>
-                        <svg id="calculator-arrow" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform transform rotate-180"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        <svg id="calculator-arrow" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform transform"><polyline points="6 9 12 15 18 9"></polyline></svg>
                     </div>
-                    <!-- Body is now collapsible and collapsed by default -->
-                    <div id="calculator-body" class="p-4 flex flex-col md:flex-row items-center gap-4 collapsed border-custom">
+                    
+                    <!-- Formula Explanation Modal -->
+                    <div id="formula-modal" class="absolute z-10 bg-dark-contrast p-4 rounded-lg border border-custom shadow-lg text-sm hidden" style="bottom: 100%; right: 0; margin-bottom: 8px; width: 300px;">
+                        <h4 class="font-bold mb-2 text-primary">Profit Calculation</h4>
+                        <p class="text-secondary">Profit is calculated using the following formula:</p>
+                        <code class="block bg-main p-2 rounded-md my-2 text-accent text-xs">
+                            (Sell Price - Buy Price) * Qty - GE Tax
+                        </code>
+                        <p class="text-secondary mt-2">The Grand Exchange (GE) tax is <strong class="text-primary">2%</strong> of the total sale price, but is reduced to <strong class="text-primary">1%</strong> for certain items (like runes, arrows, and bonds) or for sales over 250m GP.</p>
+                    </div>
+
+                    <!-- Body is now collapsible and expanded by default when an item is loaded -->
+                    <div id="calculator-body" class="p-4 flex flex-col md:flex-row items-center gap-4 border-custom">
                         <!-- Input Fields Section -->
                         <div class="w-full md:flex-grow grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div>
@@ -291,10 +315,13 @@
         const calcBuyPriceInput = document.getElementById('calc-buy-price');
         const calcSellPriceInput = document.getElementById('calc-sell-price');
         const netProfitResult = document.getElementById('net-profit-result');
-        // New references for collapsible calculator
         const calculatorHeader = document.getElementById('calculator-header');
         const calculatorBody = document.getElementById('calculator-body');
         const calculatorArrow = document.getElementById('calculator-arrow');
+        // Help icon and modal references
+        const calcHelpIcon = document.getElementById('calc-help-icon');
+        const formulaModal = document.getElementById('formula-modal');
+        const confidenceModal = document.getElementById('confidence-modal');
 
 
         let itemMapping = [];
@@ -302,6 +329,8 @@
         let fetchController; 
         let currentItem = null;
         let timeSeriesData = {}; // Store all timeframe data here
+        let flippableItems = []; // Will store dynamically generated list of flippable items
+        const popularItemIds = [4151, 13190, 11934, 536, 561, 565, 566, 453, 444, 447, 449, 451, 2357, 995, 2]; // Fallback list
 
         // Set of item IDs exempt from the 2% tax, using the 1% tax instead.
         const taxExemptIds = new Set([
@@ -360,8 +389,84 @@
                 const response = await fetch('https://prices.runescape.wiki/api/v1/osrs/mapping');
                 if (!response.ok) throw new Error('Network response was not ok');
                 itemMapping = await response.json();
+                await loadFlippableItems(); // Load dynamic list after mapping is ready
             } catch (error) {
                 showError('Could not load item data. Please refresh the page.');
+            }
+        }
+
+        // Fetches high volume items and filters them for good flips
+        async function loadFlippableItems() {
+            suggestItemBtn.disabled = true;
+            suggestItemBtn.textContent = 'Analyzing Market...';
+
+            try {
+                const [volumesRes, latestRes] = await Promise.all([
+                    fetch('https://prices.runescape.wiki/api/v1/osrs/volumes'),
+                    fetch('https://prices.runescape.wiki/api/v1/osrs/latest')
+                ]);
+                if (!volumesRes.ok || !latestRes.ok) throw new Error('Failed to fetch market data.');
+
+                const volumesData = await volumesRes.json();
+                const latestData = await latestRes.json();
+
+                const allTradedItems = Object.keys(volumesData.data);
+
+                const scoredItems = allTradedItems.map(id => {
+                    const itemInfo = itemMapping.find(i => i.id == id);
+                    const priceInfo = latestData.data[id];
+                    const dailyVolume = volumesData.data[id];
+
+                    if (!itemInfo || !priceInfo || !priceInfo.high || !priceInfo.low || !dailyVolume || priceInfo.low === 0) {
+                        return null;
+                    }
+                    
+                    let taxRate = 0.02;
+                    if (taxExemptIds.has(itemInfo.id) || priceInfo.high > 250000000) taxRate = 0.01;
+                    const geTax = Math.floor(priceInfo.high * taxRate);
+                    const netProfit = (priceInfo.high - priceInfo.low) - geTax;
+
+                    if (netProfit <= 0) return null; // Exclude non-profitable items immediately
+
+                    const flipScore = netProfit * dailyVolume;
+
+                    return { itemInfo, flipScore };
+                }).filter(Boolean); // Remove null entries
+
+                // Sort by the calculated flip score
+                scoredItems.sort((a, b) => b.flipScore - a.flipScore);
+
+                // Take the top 50 items from the sorted list
+                flippableItems = scoredItems.slice(0, 50).map(i => i.itemInfo);
+
+                if (flippableItems.length > 0) {
+                    loadInitialItem();
+                } else {
+                     // Fallback: If absolutely nothing is profitable, suggest top 10 by volume
+                    console.warn("No profitable items found. Suggesting top 10 by volume.");
+                    flippableItems = Object.keys(volumesData.data).slice(0, 10)
+                        .map(id => itemMapping.find(i => i.id == id))
+                        .filter(Boolean);
+                    if(flippableItems.length > 0) loadInitialItem();
+                }
+
+            } catch (error) {
+                console.error("Could not load flippable items:", error);
+                // Fallback to the old static list on API error
+                flippableItems = popularItemIds.map(id => itemMapping.find(i => i.id === id)).filter(Boolean);
+                if (flippableItems.length > 0) loadInitialItem();
+            } finally {
+                suggestItemBtn.disabled = false;
+                suggestItemBtn.textContent = 'Suggest Item';
+            }
+        }
+        
+        // Now uses the dynamic flippableItems list
+        function loadInitialItem() {
+            if (flippableItems.length === 0) return; 
+            const item = flippableItems[Math.floor(Math.random() * flippableItems.length)];
+            if (item) {
+                fetchAllData(item.name);
             }
         }
 
@@ -409,7 +514,12 @@
                 const dailyVolume = timeSeriesData['1d'].reduce((acc, p) => acc + (p.highPriceVolume || 0) + (p.lowPriceVolume || 0), 0);
 
                 displayItemInfo(item, latestData.data[item.id], dailyVolume);
-                updateDynamicContent('5d'); // Display 5-day view by default
+                calculateAndDisplayTrend(timeSeriesData['1d'], dailyVolume);
+                updateDynamicContent('5d');
+
+                calculatorBody.classList.remove('collapsed');
+                calculatorArrow.classList.remove('rotate-180');
+
 
             } catch (error) {
                 if (error.name !== 'AbortError') showError('Error fetching price data. The API might be down.');
@@ -418,23 +528,19 @@
             }
         }
         
-        // --- Suggestion Function ---
+        // Now uses the dynamic flippableItems list
         function suggestItem() {
-            if (itemMapping.length === 0) {
-                showError("Item data hasn't loaded yet. Please wait a moment.");
+            if (flippableItems.length === 0) {
+                showError("Market data is still being analyzed. Please wait a moment.");
                 return;
             }
-            const suggestedItemIds = [2, 11934, 536, 561, 565, 566, 453, 444, 447, 449, 451, 2357, 995];
-            const randomId = suggestedItemIds[Math.floor(Math.random() * suggestedItemIds.length)];
-            const item = itemMapping.find(i => i.id === randomId);
-
+            const item = flippableItems[Math.floor(Math.random() * flippableItems.length)];
             if (item) {
                 itemNameInput.value = item.name;
                 fetchAllData(item.name);
             }
         }
 
-        // --- Calculator Function ---
         function calculateNetProfit() {
             const quantity = parseInt(calcQuantityInput.value) || 0;
             const buyPrice = parseInt(calcBuyPriceInput.value) || 0;
@@ -520,11 +626,84 @@
                     </span>
                     <span class="font-bold text-primary">${item.highalch ? item.highalch.toLocaleString() + ' GP' : 'N/A'}</span>
                 </div>
+                <!-- Trend Analysis section will be populated by JS -->
+                <div id="trend-analysis"></div>
             `;
 
             resultsContainer.classList.remove('hidden');
             profitCalculator.classList.remove('hidden');
         }
+
+        function calculateAndDisplayTrend(dailyData, dailyVolume) {
+            const trendDiv = document.getElementById('trend-analysis');
+            if (!dailyData || dailyData.length < 2) {
+                trendDiv.innerHTML = '';
+                return;
+            }
+
+            // 1. Prepare data for linear regression
+            const prices = dailyData.map(p => (p.avgHighPrice + p.avgLowPrice) / 2).filter(p => p !== null);
+            const n = prices.length;
+            if (n < 2) {
+                trendDiv.innerHTML = '';
+                return;
+            }
+            
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+            for (let i = 0; i < n; i++) {
+                sumX += i;
+                sumY += prices[i];
+                sumXY += i * prices[i];
+                sumX2 += i * i;
+            }
+
+            // 2. Calculate the slope of the trend line
+            const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            const avgPrice = sumY / n;
+            const relativeSlope = (slope / avgPrice) * 100; // Trend as a percentage change per hour
+
+            // 3. Determine trend text and color
+            let trendText, trendColor;
+            if (relativeSlope > 0.1) {
+                trendText = 'Rising';
+                trendColor = 'text-profit';
+            } else if (relativeSlope < -0.1) {
+                trendText = 'Falling';
+                trendColor = 'text-loss';
+            } else {
+                trendText = 'Stable';
+                trendColor = 'text-secondary';
+            }
+
+            // 4. Determine confidence based on volume
+            let confidence;
+            if (dailyVolume > 50000 || (currentItem && dailyVolume > currentItem.limit * 5)) {
+                confidence = 'High';
+            } else if (dailyVolume > 10000 || (currentItem && dailyVolume > currentItem.limit)) {
+                confidence = 'Medium';
+            } else {
+                confidence = 'Low';
+            }
+
+            // 5. Display the results
+            trendDiv.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <span class="flex items-center text-secondary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>
+                        24h Trend
+                    </span>
+                    <span class="font-bold ${trendColor}">${trendText}</span>
+                </div>
+                <div class="flex items-center justify-between mt-3">
+                    <span class="flex items-center text-secondary">
+                         <svg id="confidence-help-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 hover:text-primary cursor-pointer transition-colors"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                        Confidence
+                    </span>
+                    <span class="font-bold text-primary">${confidence}</span>
+                </div>
+            `;
+        }
+
 
         function updateDynamicContent(timeframe) {
             const timeseries = timeSeriesData[timeframe];
@@ -745,6 +924,13 @@
             if (!itemNameInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
                 suggestionsDiv.classList.add('hidden');
             }
+            if (!formulaModal.classList.contains('hidden') && !formulaModal.contains(e.target) && !calcHelpIcon.contains(e.target)) {
+                formulaModal.classList.add('hidden');
+            }
+            // Hide confidence modal if click is outside
+            if (!confidenceModal.classList.contains('hidden') && !confidenceModal.contains(e.target) && !e.target.closest('#confidence-help-icon')) {
+                confidenceModal.classList.add('hidden');
+            }
         });
 
         themeToggleButton.addEventListener('click', () => {
@@ -766,10 +952,23 @@
             input.addEventListener('input', calculateNetProfit);
         });
 
-        // Event listener for the collapsible calculator
         calculatorHeader.addEventListener('click', () => {
             calculatorBody.classList.toggle('collapsed');
             calculatorArrow.classList.toggle('rotate-180');
+        });
+
+        calcHelpIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            formulaModal.classList.toggle('hidden');
+        });
+
+        // Event listener for the confidence help icon using delegation
+        additionalInfoDiv.addEventListener('click', (e) => {
+            const helpIcon = e.target.closest('#confidence-help-icon');
+            if (helpIcon) {
+                e.stopPropagation();
+                confidenceModal.classList.toggle('hidden');
+            }
         });
 
         // --- Initial Load ---
@@ -781,4 +980,3 @@
     </script>
 </body>
 </html>
-
