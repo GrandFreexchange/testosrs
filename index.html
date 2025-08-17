@@ -138,6 +138,37 @@
             padding-bottom: 0;
             border-top-width: 0px;
         }
+        
+        /* Custom Slider Styles */
+        #budget-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 20px;
+          height: 20px;
+          background: var(--accent-gold);
+          cursor: pointer;
+          border-radius: 50%;
+        }
+
+        #budget-slider::-moz-range-thumb {
+          width: 20px;
+          height: 20px;
+          background: var(--accent-gold);
+          cursor: pointer;
+          border-radius: 50%;
+          border: none;
+        }
+        #budget-slider::-webkit-slider-runnable-track {
+            background-color: var(--border-color);
+            height: 8px;
+            border-radius: 4px;
+        }
+        #budget-slider::-moz-range-track {
+            background-color: var(--border-color);
+            height: 8px;
+            border-radius: 4px;
+        }
+
 
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -175,11 +206,15 @@
         <!-- Search Section -->
         <div>
             <div class="relative mb-4">
-                <input type="text" id="itemName" placeholder="e.g. Steel platebody, Abyssal whip, Elysian spirit shield" class="w-full p-4 bg-main border-2 border-custom rounded-lg text-primary placeholder-custom focus:outline-none focus-accent transition-colors">
+                <input type="text" id="itemName" placeholder="Analyzing market for suggestions..." class="w-full p-4 bg-main border-2 border-custom rounded-lg text-primary placeholder-custom focus:outline-none focus-accent transition-colors">
                 <div id="suggestions" class="absolute z-20 w-full bg-main border border-custom rounded-lg mt-1 max-h-60 overflow-y-auto hidden"></div>
             </div>
-            <div class="text-center">
-                <button id="suggest-item-btn" class="suggest-btn px-6 py-2 rounded-lg font-medium">Suggest Item</button>
+            <div class="flex flex-col md:flex-row justify-center items-center gap-4">
+                <button id="suggest-item-btn" class="suggest-btn px-6 py-2 rounded-lg font-medium w-full md:w-auto">Suggest Item</button>
+                <div class="w-full md:w-1/2 lg:w-1/3">
+                    <label for="budget-slider" class="block text-sm font-medium text-secondary text-center mb-1">Budget: <span id="budget-value" class="text-primary font-bold">1m</span> GP</label>
+                    <input id="budget-slider" type="range" min="0" max="15" value="5" step="1" class="w-full h-2 rounded-lg appearance-none cursor-pointer">
+                </div>
             </div>
         </div>
 
@@ -201,7 +236,7 @@
             <div class="lg:col-span-1 flex flex-col gap-6">
                 <!-- Item Info & Price Box -->
                 <div class="bg-main p-6 rounded-lg border border-custom space-y-6 relative">
-                    <div id="item-header" class="flex items-center">
+                    <div id="item-header" class="flex items-center justify-center">
                         <img id="item-icon" src="" alt="Item Icon" class="w-12 h-12 mr-4 bg-dark-contrast rounded-full">
                         <h2 id="item-name-title" class="text-2xl font-bold text-primary"></h2>
                     </div>
@@ -322,6 +357,9 @@
         const calcHelpIcon = document.getElementById('calc-help-icon');
         const formulaModal = document.getElementById('formula-modal');
         const confidenceModal = document.getElementById('confidence-modal');
+        // Budget Slider references
+        const budgetSlider = document.getElementById('budget-slider');
+        const budgetValue = document.getElementById('budget-value');
 
 
         let itemMapping = [];
@@ -329,8 +367,16 @@
         let fetchController; 
         let currentItem = null;
         let timeSeriesData = {}; // Store all timeframe data here
-        let flippableItems = []; // Will store dynamically generated list of flippable items
-        const popularItemIds = [4151, 13190, 11934, 536, 561, 565, 566, 453, 444, 447, 449, 451, 2357, 995, 2]; // Fallback list
+        let masterFlippableItems = []; // Holds the full sorted list of items
+        let flippableItems = []; // Holds the current budget-filtered list
+        
+        // NEW: Custom budget steps for the slider
+        const budgetSteps = [
+            100000, 200000, 300000, 400000, 500000, 
+            1000000, 
+            5000000, 10000000, 15000000, 20000000, 25000000, 
+            30000000, 35000000, 40000000, 45000000, 50000000
+        ];
 
         // Set of item IDs exempt from the 2% tax, using the 1% tax instead.
         const taxExemptIds = new Set([
@@ -394,8 +440,21 @@
                 showError('Could not load item data. Please refresh the page.');
             }
         }
+        
+        // Updates the search bar placeholder with random items
+        function updatePlaceholder() {
+            if (flippableItems.length < 3) return;
 
-        // Fetches high volume items and filters them for good flips
+            const shuffled = [...flippableItems].sort(() => 0.5 - Math.random());
+            const selectedItems = shuffled.slice(0, 3);
+
+            if (selectedItems.length === 3) {
+                const placeholderText = `e.g. ${selectedItems[0].name}, ${selectedItems[1].name}, ${selectedItems[2].name}`;
+                itemNameInput.placeholder = placeholderText;
+            }
+        }
+
+        // Fetches high volume items and ranks them by profitability score
         async function loadFlippableItems() {
             suggestItemBtn.disabled = true;
             suggestItemBtn.textContent = 'Analyzing Market...';
@@ -430,34 +489,50 @@
 
                     const flipScore = netProfit * dailyVolume;
 
-                    return { itemInfo, flipScore };
+                    return { itemInfo, priceInfo, flipScore };
                 }).filter(Boolean); // Remove null entries
 
                 // Sort by the calculated flip score
                 scoredItems.sort((a, b) => b.flipScore - a.flipScore);
 
-                // Take the top 50 items from the sorted list
-                flippableItems = scoredItems.slice(0, 50).map(i => i.itemInfo);
+                masterFlippableItems = scoredItems; // Store the full ranked list
 
+                filterItemsByBudget(); // Perform initial filtering
+                
                 if (flippableItems.length > 0) {
+                    updatePlaceholder();
                     loadInitialItem();
                 } else {
-                     // Fallback: If absolutely nothing is profitable, suggest top 10 by volume
-                    console.warn("No profitable items found. Suggesting top 10 by volume.");
-                    flippableItems = Object.keys(volumesData.data).slice(0, 10)
-                        .map(id => itemMapping.find(i => i.id == id))
-                        .filter(Boolean);
-                    if(flippableItems.length > 0) loadInitialItem();
+                    showError("No profitable items found for your budget. Try increasing it.");
                 }
 
             } catch (error) {
                 console.error("Could not load flippable items:", error);
                 // Fallback to the old static list on API error
                 flippableItems = popularItemIds.map(id => itemMapping.find(i => i.id === id)).filter(Boolean);
-                if (flippableItems.length > 0) loadInitialItem();
+                if (flippableItems.length > 0) {
+                    updatePlaceholder();
+                    loadInitialItem();
+                }
             } finally {
                 suggestItemBtn.disabled = false;
                 suggestItemBtn.textContent = 'Suggest Item';
+            }
+        }
+
+        // Filters the master list based on the budget slider
+        function filterItemsByBudget() {
+            const sliderIndex = parseInt(budgetSlider.value);
+            const budget = budgetSteps[sliderIndex];
+
+            flippableItems = masterFlippableItems
+                .filter(item => item.priceInfo.low <= budget)
+                .map(item => item.itemInfo);
+            
+            if (flippableItems.length === 0 && masterFlippableItems.length > 0) {
+                 showError("No profitable items found for your budget. Try increasing it.");
+            } else {
+                 hideError();
             }
         }
         
@@ -531,7 +606,7 @@
         // Now uses the dynamic flippableItems list
         function suggestItem() {
             if (flippableItems.length === 0) {
-                showError("Market data is still being analyzed. Please wait a moment.");
+                showError("No items found for your current budget. Try increasing it.");
                 return;
             }
             const item = flippableItems[Math.floor(Math.random() * flippableItems.length)];
@@ -969,6 +1044,19 @@
                 e.stopPropagation();
                 confidenceModal.classList.toggle('hidden');
             }
+        });
+
+        budgetSlider.addEventListener('input', () => {
+            const index = parseInt(budgetSlider.value);
+            const value = budgetSteps[index];
+            
+            if (value >= 1000000) {
+                budgetValue.textContent = (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'm';
+            } else {
+                budgetValue.textContent = (value / 1000).toFixed(0) + 'k';
+            }
+            filterItemsByBudget();
+            updatePlaceholder();
         });
 
         // --- Initial Load ---
