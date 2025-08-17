@@ -30,7 +30,7 @@
             --border-color: #504a45;
             --text-primary: #e5e0db;
             --text-secondary: #a8a29e;
-            --accent-gold: #f59e0b;
+            --accent-gold: #e7bc1c;
             --accent-green: #22c55e;
             --accent-red: #ef4444;
             --accent-blue: #3b82f6;
@@ -100,10 +100,12 @@
             border: 1px solid var(--border-color);
             color: var(--text-secondary);
             transition: all 0.2s ease-in-out;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
         }
         .suggest-btn:hover {
             border-color: var(--accent-gold);
             color: var(--accent-gold);
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4);
         }
         .clickable-price:hover {
             text-decoration: underline;
@@ -115,11 +117,11 @@
             color: var(--text-primary);
         }
         .main-title {
-            color: #FFFFFF;
-            transition: color 0.2s ease-in-out;
+            color: var(--accent-gold);
+            transition: all 0.2s ease-in-out;
         }
         .main-title:hover {
-            color: #F7CA1E;
+            filter: brightness(1.1);
         }
         html[data-theme="light"] .main-title {
              color: #3a3532; /* Keep it dark for readability on light theme */
@@ -222,9 +224,9 @@
                 <div id="suggestions" class="absolute z-20 w-full bg-main border border-custom rounded-lg mt-1 max-h-60 overflow-y-auto hidden"></div>
             </div>
             <div class="flex flex-col md:flex-row justify-center items-center gap-4">
-                <div class="w-full md:w-1/3 lg:w-1/4">
+                <div class="w-full md:w-1/2 lg:w-2/5">
                     <label for="budget-slider" class="block text-sm font-medium text-secondary text-center mb-1">Budget: <span id="budget-value" class="text-primary font-bold">1m</span> GP</label>
-                    <input id="budget-slider" type="range" min="0" max="15" value="5" step="1" class="w-full h-2 rounded-lg appearance-none cursor-pointer">
+                    <input id="budget-slider" type="range" min="0" max="18" value="5" step="1" class="w-full h-2 rounded-lg appearance-none cursor-pointer">
                 </div>
                 <button id="suggest-item-btn" class="suggest-btn px-6 py-2 rounded-lg font-medium w-full md:w-auto">Suggest Item</button>
             </div>
@@ -249,7 +251,9 @@
                 <!-- Item Info & Price Box -->
                 <div class="bg-main p-6 rounded-lg border border-custom space-y-6 relative">
                     <div id="item-header" class="flex items-center justify-center">
-                        <img id="item-icon" src="" alt="Item Icon" class="w-12 h-12 mr-2 bg-dark-contrast rounded-full">
+                        <div class="w-12 h-12 rounded-full bg-dark-contrast flex-shrink-0 mr-3 overflow-hidden flex items-center justify-center">
+                           <img id="item-icon" src="" alt="Item Icon" class="h-full" style="transform: translateX(1.5px);">
+                        </div>
                         <h2 id="item-name-title" class="text-2xl font-bold text-primary"></h2>
                     </div>
                     <div id="price-info" class="space-y-3 text-lg"></div>
@@ -387,7 +391,9 @@
             100000, 200000, 300000, 400000, 500000, 
             1000000, 
             5000000, 10000000, 15000000, 20000000, 25000000, 
-            30000000, 35000000, 40000000, 45000000, 50000000
+            30000000, 35000000, 40000000, 45000000, 50000000,
+            100000000, 250000000,
+            Number.MAX_SAFE_INTEGER // High Roller Tier
         ];
 
         // Set of item IDs exempt from the 2% tax, using the 1% tax instead.
@@ -540,13 +546,19 @@
             const sliderIndex = parseInt(budgetSlider.value);
             const budget = budgetSteps[sliderIndex];
 
-            flippableItems = masterFlippableItems
-                .filter(item => {
-                    const price = item.priceInfo.low;
-                    const minPrice = budget > 1000000 ? budget * 0.1 : 1; // Only show items >10% of budget if budget is >1m
-                    return price <= budget && price >= minPrice;
-                })
-                .map(item => item.itemInfo);
+            if (budget === Number.MAX_SAFE_INTEGER) {
+                 flippableItems = masterFlippableItems
+                    .filter(item => item.priceInfo.low > 10000000) // High Roller: items over 10m
+                    .map(item => item.itemInfo);
+            } else {
+                flippableItems = masterFlippableItems
+                    .filter(item => {
+                        const price = item.priceInfo.low;
+                        const minPrice = budget > 1000000 ? budget * 0.1 : 1; // Only show items >10% of budget if budget is >1m
+                        return price <= budget && price >= minPrice;
+                    })
+                    .map(item => item.itemInfo);
+            }
             
             if (flippableItems.length === 0 && masterFlippableItems.length > 0) {
                  showError("No profitable items found for your budget. Try increasing it.");
@@ -570,6 +582,12 @@
             }
             fetchController = new AbortController();
             const { signal } = fetchController;
+            
+            // NEW: Reset calculator on new item fetch
+            calcQuantityInput.value = '1';
+            calcBuyPriceInput.value = '';
+            calcSellPriceInput.value = '';
+            calculateNetProfit();
 
             hideError();
             resultsContainer.classList.add('hidden');
@@ -686,14 +704,6 @@
                     <p><strong>Margin:</strong> <span class="text-accent">${margin.toLocaleString()} GP</span></p>
                     <p><strong>Profit/Flip:</strong> <span class="${profit > 0 ? 'text-profit' : 'text-loss'} font-bold">${profit.toLocaleString()} GP</span></p>
                 `;
-                priceInfoDiv.querySelectorAll('.clickable-price').forEach(el => {
-                    el.addEventListener('click', (e) => {
-                        const targetInput = e.target.dataset.target === 'buy' ? calcBuyPriceInput : calcSellPriceInput;
-                        targetInput.value = e.target.dataset.price;
-                        calculateNetProfit();
-                        targetInput.focus();
-                    });
-                });
             } else {
                 priceInfoDiv.innerHTML = `<p class="text-secondary">No live price data available.</p>`;
             }
@@ -1086,9 +1096,14 @@
             const index = parseInt(budgetSlider.value);
             const value = budgetSteps[index];
             
-            if (value >= 1000000) {
+            if (value >= 1000000000) {
+                budgetValue.textContent = (value / 1000000000).toFixed(0) + 'b';
+            } else if (value >= 1000000) {
                 budgetValue.textContent = (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'm';
-            } else {
+            } else if (value === Number.MAX_SAFE_INTEGER) {
+                 budgetValue.textContent = "$HIGH ROLLER$";
+            }
+            else {
                 budgetValue.textContent = (value / 1000).toFixed(0) + 'k';
             }
             filterItemsByBudget();
