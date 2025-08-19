@@ -520,23 +520,9 @@
 
                 masterFlippableItems = scoredItems; // Store the full ranked list
 
-                filterItemsByBudget(); // Perform initial filtering
-                
-                if (flippableItems.length > 0) {
-                    updatePlaceholder();
-                    loadInitialItem();
-                } else {
-                    showError("No profitable items found for your budget. Try increasing it.");
-                }
-
             } catch (error) {
                 console.error("Could not load flippable items:", error);
-                // Fallback to the old static list on API error
-                flippableItems = popularItemIds.map(id => itemMapping.find(i => i.id === id)).filter(Boolean);
-                if (flippableItems.length > 0) {
-                    updatePlaceholder();
-                    loadInitialItem();
-                }
+                showError("Could not load market data. Please refresh.")
             } finally {
                 suggestItemBtn.disabled = false;
                 suggestItemBtn.textContent = 'Suggest Item';
@@ -585,7 +571,6 @@
             fetchController = new AbortController();
             const { signal } = fetchController;
             
-            // NEW: Reset calculator on new item fetch
             calcQuantityInput.value = '1';
             calcBuyPriceInput.value = '';
             calcSellPriceInput.value = '';
@@ -602,6 +587,22 @@
                 loader.classList.add('hidden');
                 return;
             }
+
+            // ===============================================
+            // == FIX: WRAP URL UPDATE IN TRY/CATCH BLOCK  ==
+            // ===============================================
+            // This prevents a crash in sandboxed environments (like iframes)
+            // where manipulating browser history is not allowed.
+            try {
+                const slug = `${item.id}-${item.name.replace(/ /g, '_').replace(/'/g, '')}`;
+                const url = new URL(window.location);
+                url.searchParams.set('item', slug);
+                history.pushState({}, '', url);
+            } catch (e) {
+                console.warn("Could not update URL. This is expected in a sandboxed environment.", e);
+            }
+            // ===============================================
+
             currentItem = item;
 
             const latestUrl = 'https://prices.runescape.wiki/api/v1/osrs/latest';
@@ -1125,9 +1126,50 @@
 
         // --- Initial Load ---
         
-        const savedTheme = localStorage.getItem('theme') || 'dark';
-        applyTheme(savedTheme);
-        loadItemMapping();
+        // NEW: This function runs after all initial data is loaded and ready.
+        // It decides whether to load an item from the URL or a random one.
+        async function onAppReady() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const slugFromUrl = urlParams.get('item');
+
+            if (slugFromUrl) {
+                // An item slug was found in the URL
+                const itemId = slugFromUrl.split('-')[0]; // Get the ID from the slug
+                const item = itemMapping.find(i => i.id == itemId); // Find the item by its ID
+
+                if (item) {
+                    // If the item is valid, pre-fill the search bar and fetch its data
+                    itemNameInput.value = item.name;
+                    await fetchAllData(item.name);
+                } else {
+                    // If the ID from the URL is invalid, fall back to a random item
+                    console.error("Item ID from URL not found, loading a random item.");
+                    loadInitialItem();
+                }
+            } else {
+                // If no item is in the URL, load a random item as the default behavior
+                loadInitialItem();
+            }
+        }
+
+        // NEW: The main function to start the application in a structured way.
+        async function initialize() {
+            // 1. Set the visual theme first
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            applyTheme(savedTheme);
+
+            // 2. Load all necessary data from the API
+            await loadItemMapping(); // This function now also handles loading the flippable items list
+            
+            // 3. Once data is ready, prepare the UI
+            filterItemsByBudget(); // Apply the default budget filter
+            updatePlaceholder();   // Update the search placeholder with suggestions
+            
+            // 4. Finally, decide which item to display
+            onAppReady();
+        }
+
+        initialize(); // Start the application!
 
     </script>
 </body>
