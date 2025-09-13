@@ -143,6 +143,12 @@
         html[data-theme="light"] .main-title {
              color: #2c2c2c; /* Dark grey for title to stand out on beige theme */
         }
+        .section-title {
+            color: var(--accent-gold);
+        }
+        html[data-theme="light"] .section-title {
+            color: #2c2c2c;
+        }
         
         #calculator-body {
             max-height: 500px;
@@ -199,7 +205,21 @@
         #budget-slider:active::-moz-range-thumb {
           box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.3);
         }
-
+        
+        /* Styles for clickable table headers in advanced view */
+        #advanced-table-header th[data-sort] {
+            cursor: pointer;
+            user-select: none;
+        }
+        #advanced-table-header th[data-sort]:hover {
+            color: var(--text-primary);
+        }
+        .sort-icon {
+            display: inline-block;
+            margin-left: 6px;
+            font-size: 0.9em;
+            color: var(--accent-gold);
+        }
 
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -378,18 +398,33 @@
         <div id="advanced-container" class="hidden mt-8">
             <div class="bg-main p-6 rounded-lg border border-custom">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-2xl font-bold text-primary">Advanced Market View</h2>
+                    <h2 class="text-2xl font-bold section-title">Advanced Market View</h2>
                 </div>
                 
                 <!-- Advanced Controls -->
                 <div class="flex flex-col md:flex-row gap-4 mb-6">
+                     <div class="flex-1">
+                        <label for="advanced-category" class="block text-sm font-medium text-secondary mb-1">Category:</label>
+                        <select id="advanced-category" class="w-full p-2 rounded-md calc-input focus:outline-none focus-accent">
+                            <option value="all">All Items</option>
+                            <option value="armour">Armour</option>
+                            <option value="food">Food</option>
+                            <option value="herbs">Herbs</option>
+                            <option value="logs">Logs</option>
+                            <option value="ores">Ores & Bars</option>
+                            <option value="potions">Potions</option>
+                            <option value="runes">Runes</option>
+                            <option value="seeds">Seeds</option>
+                            <option value="weapons">Weapons</option>
+                        </select>
+                    </div>
                     <div class="flex-1">
                         <label for="advanced-sort" class="block text-sm font-medium text-secondary mb-1">Sort by:</label>
                         <select id="advanced-sort" class="w-full p-2 rounded-md calc-input focus:outline-none focus-accent">
                             <option value="profit">Profit (High to Low)</option>
                             <option value="volume">Volume (High to Low)</option>
                             <option value="margin">Margin % (High to Low)</option>
-                            <option value="price">Price (Low to High)</option>
+                            <option value="low">Price (Low to High)</option>
                         </select>
                     </div>
                     <div class="flex-1">
@@ -407,15 +442,15 @@
                 <!-- Advanced Table -->
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
-                        <thead>
+                        <thead id="advanced-table-header">
                             <tr class="border-b border-custom">
-                                <th class="text-left py-3 px-2 text-secondary font-medium">Item</th>
-                                <th class="text-right py-3 px-2 text-secondary font-medium">Low</th>
-                                <th class="text-right py-3 px-2 text-secondary font-medium">High</th>
-                                <th class="text-right py-3 px-2 text-secondary font-medium">Margin</th>
-                                <th class="text-right py-3 px-2 text-secondary font-medium">Profit</th>
-                                <th class="text-right py-3 px-2 text-secondary font-medium">Volume</th>
-                                <th class="text-right py-3 px-2 text-secondary font-medium">Limit</th>
+                                <th class="text-left py-3 px-2 text-secondary font-medium" data-sort="name">Item</th>
+                                <th class="text-right py-3 px-2 text-secondary font-medium" data-sort="low">Low</th>
+                                <th class="text-right py-3 px-2 text-secondary font-medium" data-sort="high">High</th>
+                                <th class="text-right py-3 px-2 text-secondary font-medium" data-sort="margin">Margin</th>
+                                <th class="text-right py-3 px-2 text-secondary font-medium" data-sort="profit">Profit</th>
+                                <th class="text-right py-3 px-2 text-secondary font-medium" data-sort="volume">Volume</th>
+                                <th class="text-right py-3 px-2 text-secondary font-medium" data-sort="limit">Limit</th>
                             </tr>
                         </thead>
                         <tbody id="advanced-table-body">
@@ -454,8 +489,10 @@
         // Advanced View References
         const modeToggleBtn = document.getElementById('mode-toggle-btn');
         const advancedContainer = document.getElementById('advanced-container');
+        const advancedCategory = document.getElementById('advanced-category');
         const advancedSort = document.getElementById('advanced-sort');
         const advancedLimit = document.getElementById('advanced-limit');
+        const advancedTableHeader = document.getElementById('advanced-table-header');
         const advancedTableBody = document.getElementById('advanced-table-body');
         // Profit Calculator References
         const calcQuantityInput = document.getElementById('calc-quantity');
@@ -482,12 +519,13 @@
         let priceChart = null;
         let fetchController; 
         let currentItem = null;
-        let lastSuggestedItem = null; // ADDED THIS LINE
+        let lastSuggestedItem = null;
         let timeSeriesData = {}; // Store all timeframe data here
         let masterFlippableItems = []; // Holds the full sorted list of items
         let flippableItems = []; // Holds the current budget-filtered list
         let isApiThrottled = false; // Flag to prevent API spam
         let isAdvancedMode = false; // Flag to track current view mode
+        let advancedSortState = { column: 'profit', direction: 'desc' };
         
         // Custom budget steps for the slider
         const budgetSteps = [
@@ -710,24 +748,24 @@
             currentItem = item;
 
             const latestUrl = 'https://prices.runescape.wiki/api/v1/osrs/latest';
-            const oneHourUrl = `https://prices.runescape.wiki/api/v1/osrs/timeseries?timestep=1h&id=${item.id}`;
+            const fiveMinUrl = `https://prices.runescape.wiki/api/v1/osrs/timeseries?timestep=5m&id=${item.id}`;
             const sixHourUrl = `https://prices.runescape.wiki/api/v1/osrs/timeseries?timestep=6h&id=${item.id}`;
 
             try {
                 const fetchOptions = { headers: WIKI_API_HEADERS, signal };
-                const [latestRes, oneHourRes, sixHourRes] = await Promise.all([
+                const [latestRes, fiveMinRes, sixHourRes] = await Promise.all([
                     fetch(latestUrl, fetchOptions),
-                    fetch(oneHourUrl, fetchOptions),
+                    fetch(fiveMinUrl, fetchOptions),
                     fetch(sixHourUrl, fetchOptions)
                 ]);
 
-                if (!latestRes.ok || !oneHourRes.ok || !sixHourRes.ok) throw new Error('Failed to fetch price data.');
+                if (!latestRes.ok || !fiveMinRes.ok || !sixHourRes.ok) throw new Error('Failed to fetch price data.');
 
                 const latestData = await latestRes.json();
-                const oneHourData = await oneHourRes.json();
+                const fiveMinData = await fiveMinRes.json();
                 const sixHourData = await sixHourRes.json();
                 
-                timeSeriesData['1d'] = oneHourData.data.slice(-24);
+                timeSeriesData['1d'] = fiveMinData.data.slice(-288);
                 timeSeriesData['5d'] = sixHourData.data.slice(-20);
                 timeSeriesData['30d'] = sixHourData.data;
                 
@@ -884,7 +922,10 @@
             // 2. Calculate the slope of the trend line
             const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
             const avgPrice = sumY / n;
-            const relativeSlope = (slope / avgPrice) * 100; // Trend as a percentage change per hour
+            
+            // The slope is per 5-minute interval. Multiply by 12 to get an equivalent hourly slope.
+            const hourlySlopeEquivalent = slope * 12;
+            const relativeSlope = (hourlySlopeEquivalent / avgPrice) * 100; // Trend as a percentage change per hour (equivalent)
 
             // 3. Determine trend text and color
             let trendText, trendColor;
@@ -932,7 +973,7 @@
         function updateDynamicContent(timeframe) {
             const timeseries = timeSeriesData[timeframe];
             if (!timeseries) return;
-            updateChart(currentItem.name, timeseries);
+            updateChart(currentItem.name, timeseries, timeframe);
         }
 
         function formatAxisLabel(value) {
@@ -948,7 +989,7 @@
             return value.toLocaleString();
         }
 
-        function updateChart(itemName, dataPoints) {
+        function updateChart(itemName, dataPoints, timeframe) {
             if (priceChart) priceChart.destroy();
             
             const style = getComputedStyle(document.body);
@@ -975,6 +1016,8 @@
 
             const minDate = labels.length > 0 ? labels[0].getTime() : null;
             const maxDate = labels.length > 0 ? labels[labels.length - 1].getTime() : null;
+            
+            const timeUnit = (timeframe === '1d') ? 'hour' : 'day';
 
             priceChart = new Chart(ctx, {
                 type: 'bar',
@@ -1063,7 +1106,7 @@
                             min: minDate,
                             max: maxDate,
                             time: {
-                                unit: labels.length > 30 ? 'day' : 'hour',
+                                unit: timeUnit,
                                 tooltipFormat: 'MMM d, h:mm a'
                             },
                             grid: { color: gridColor },
@@ -1121,6 +1164,33 @@
                 populateAdvancedTable();
             }
         }
+        
+        const categoryKeywords = {
+            armour: [' helm', ' body', ' legs', ' skirt', ' shield', ' boots', ' gloves', ' vambraces', ' coif', ' chaps', ' platebody', ' platelegs', ' plateskirt', ' full helm', ' kiteshield', ' dragonfire ward', ' defender'],
+            weapons: ['scimitar', 'longsword', 'dagger', 'warhammer', 'battleaxe', 'mace', '2h sword', 'halberd', ' cbow', ' xbow', ' bow', ' staff', ' spear', ' whip', ' abyssal bludgeon', ' godsword', ' tentacle'],
+            food: ['shark', 'manta ray', 'anglerfish', 'karambwan', 'sea turtle'],
+            herbs: ['grimy', 'clean', 'ranarr', 'torstol', 'snapdragon', 'kwuarm', 'cadantine', 'lantadyme', 'irit', 'avantoe', 'dwarf weed'],
+            logs: ['logs'],
+            ores: [' ore', ' bar'],
+            potions: ['potion(', ' antifire(', ' super', ' restore(', ' ranging(', ' compost', 'antidote++'],
+            runes: ['rune'],
+            seeds: [' seed']
+        };
+
+        function filterByCategory(items, category) {
+            if (category === 'all') return items;
+            
+            const keywords = categoryKeywords[category] || [];
+            
+            return items.filter(item => {
+                const name = item.itemInfo.name.toLowerCase();
+                // Special handling for herbs to exclude seeds
+                if (category === 'herbs' && name.includes('seed')) {
+                    return false;
+                }
+                return keywords.some(keyword => name.includes(keyword));
+            });
+        }
 
         function populateAdvancedTable() {
             if (masterFlippableItems.length === 0) {
@@ -1128,78 +1198,82 @@
                 return;
             }
 
-            const sortBy = advancedSort.value;
+            const category = advancedCategory.value;
             const limit = parseInt(advancedLimit.value);
             
-            // Sort items based on selection
-            let sortedItems = [...masterFlippableItems];
-            switch (sortBy) {
-                case 'profit':
-                    sortedItems.sort((a, b) => {
-                        const profitA = (a.priceInfo.high - a.priceInfo.low) - Math.floor(a.priceInfo.high * (taxExemptIds.has(a.itemInfo.id) || a.priceInfo.high > 250000000 ? 0.01 : 0.02));
-                        const profitB = (b.priceInfo.high - b.priceInfo.low) - Math.floor(b.priceInfo.high * (taxExemptIds.has(b.itemInfo.id) || b.priceInfo.high > 250000000 ? 0.01 : 0.02));
-                        return profitB - profitA;
-                    });
-                    break;
-                case 'volume':
-                    sortedItems.sort((a, b) => b.flipScore / ((a.priceInfo.high - a.priceInfo.low) - Math.floor(a.priceInfo.high * (taxExemptIds.has(a.itemInfo.id) || a.priceInfo.high > 250000000 ? 0.01 : 0.02))) - a.flipScore / ((b.priceInfo.high - b.priceInfo.low) - Math.floor(b.priceInfo.high * (taxExemptIds.has(b.itemInfo.id) || b.priceInfo.high > 250000000 ? 0.01 : 0.02))));
-                    break;
-                case 'margin':
-                    sortedItems.sort((a, b) => {
-                        const marginA = ((a.priceInfo.high - a.priceInfo.low) / a.priceInfo.low) * 100;
-                        const marginB = ((b.priceInfo.high - b.priceInfo.low) / b.priceInfo.low) * 100;
-                        return marginB - marginA;
-                    });
-                    break;
-                case 'price':
-                    sortedItems.sort((a, b) => a.priceInfo.low - b.priceInfo.low);
-                    break;
-            }
+            // 1. Filter by category first
+            let filteredItems = filterByCategory(masterFlippableItems, category);
+            
+            // 2. Sort the filtered items
+            const getProfit = item => (item.priceInfo.high - item.priceInfo.low) - Math.floor(item.priceInfo.high * (taxExemptIds.has(item.itemInfo.id) || item.priceInfo.high > 250000000 ? 0.01 : 0.02));
+            const getVolume = item => { const profit = getProfit(item); return profit > 0 ? Math.floor(item.flipScore / profit) : 0; };
+            const getMargin = item => item.priceInfo.low > 0 ? ((item.priceInfo.high - item.priceInfo.low) / item.priceInfo.low) * 100 : 0;
 
-            // Limit results
-            sortedItems = sortedItems.slice(0, limit);
+            filteredItems.sort((a, b) => {
+                let valA, valB;
+                switch (advancedSortState.column) {
+                    case 'profit': valA = getProfit(a); valB = getProfit(b); break;
+                    case 'volume': valA = getVolume(a); valB = getVolume(b); break;
+                    case 'margin': valA = getMargin(a); valB = getMargin(b); break;
+                    case 'low': valA = a.priceInfo.low; valB = b.priceInfo.low; break;
+                    case 'high': valA = a.priceInfo.high; valB = b.priceInfo.high; break;
+                    case 'limit': valA = a.itemInfo.limit || 0; valB = b.itemInfo.limit || 0; break;
+                    default: return 0;
+                }
+                
+                return advancedSortState.direction === 'desc' ? valB - valA : valA - valB;
+            });
 
-            // Populate table
+            // 3. Limit results
+            const finalItems = filteredItems.slice(0, limit);
+
+            // 4. Populate table
             advancedTableBody.innerHTML = '';
-            sortedItems.forEach(item => {
-                const margin = item.priceInfo.high - item.priceInfo.low;
-                const marginPercent = ((margin / item.priceInfo.low) * 100).toFixed(2);
-                const taxRate = taxExemptIds.has(item.itemInfo.id) || item.priceInfo.high > 250000000 ? 0.01 : 0.02;
-                const tax = Math.floor(item.priceInfo.high * taxRate);
-                const profit = margin - tax;
-                const volume = Math.floor(item.flipScore / profit);
-
-                const row = document.createElement('tr');
-                row.className = 'border-b border-custom table-row-hover cursor-pointer transition-colors duration-200';
-                row.innerHTML = `
-                    <td class="py-3 px-2">
-                        <div class="flex items-center">
-                            <img src="https://static.runelite.net/cache/item/icon/${item.itemInfo.id}.png" 
-                                 class="w-6 h-6 mr-2" 
-                                 onerror="this.style.display='none'">
-                            <span class="text-primary font-medium">${item.itemInfo.name}</span>
-                        </div>
-                    </td>
-                    <td class="text-right py-3 px-2 text-loss">${item.priceInfo.low.toLocaleString()}</td>
-                    <td class="text-right py-3 px-2 text-profit">${item.priceInfo.high.toLocaleString()}</td>
-                    <td class="text-right py-3 px-2 text-accent">${marginPercent}%</td>
-                    <td class="text-right py-3 px-2 ${profit > 0 ? 'text-profit' : 'text-loss'}">${profit.toLocaleString()}</td>
-                    <td class="text-right py-3 px-2 text-volume">${volume.toLocaleString()}</td>
-                    <td class="text-right py-3 px-2 text-secondary">${item.itemInfo.limit ? item.itemInfo.limit.toLocaleString() : 'N/A'}</td>
-                `;
-                
-                // Add click handler to load item details
-                row.addEventListener('click', () => {
-                    itemNameInput.value = item.itemInfo.name;
-                    // Switch back to simple mode to show item details
-                    isAdvancedMode = false;
-                    modeToggleBtn.textContent = 'Advanced';
-                    resultsContainer.classList.remove('hidden');
-                    advancedContainer.classList.add('hidden');
-                    throttleApiCall(() => fetchAllData(item.itemInfo.name));
+            if (finalItems.length === 0) {
+                 advancedTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-secondary">No items found for the selected category.</td></tr>';
+            } else {
+                finalItems.forEach(item => {
+                    const profit = getProfit(item);
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-custom table-row-hover cursor-pointer transition-colors duration-200';
+                    row.innerHTML = `
+                        <td class="py-3 px-2">
+                            <div class="flex items-center">
+                                <img src="https://static.runelite.net/cache/item/icon/${item.itemInfo.id}.png" 
+                                     class="w-6 h-6 mr-2" 
+                                     onerror="this.style.display='none'">
+                                <span class="text-primary font-medium">${item.itemInfo.name}</span>
+                            </div>
+                        </td>
+                        <td class="text-right py-3 px-2 text-loss">${item.priceInfo.low.toLocaleString()}</td>
+                        <td class="text-right py-3 px-2 text-profit">${item.priceInfo.high.toLocaleString()}</td>
+                        <td class="text-right py-3 px-2 text-accent">${getMargin(item).toFixed(2)}%</td>
+                        <td class="text-right py-3 px-2 ${profit > 0 ? 'text-profit' : 'text-loss'}">${profit.toLocaleString()}</td>
+                        <td class="text-right py-3 px-2 text-volume">${getVolume(item).toLocaleString()}</td>
+                        <td class="text-right py-3 px-2 text-secondary">${item.itemInfo.limit ? item.itemInfo.limit.toLocaleString() : 'N/A'}</td>
+                    `;
+                    row.addEventListener('click', () => {
+                        itemNameInput.value = item.itemInfo.name;
+                        isAdvancedMode = false; modeToggleBtn.textContent = 'Advanced';
+                        resultsContainer.classList.remove('hidden'); advancedContainer.classList.add('hidden');
+                        throttleApiCall(() => fetchAllData(item.itemInfo.name));
+                    });
+                    advancedTableBody.appendChild(row);
                 });
+            }
+            
+            // 5. Update header sort indicators
+            advancedTableHeader.querySelectorAll('th[data-sort]').forEach(th => {
+                // Clear existing icons
+                const existingIcon = th.querySelector('.sort-icon');
+                if (existingIcon) existingIcon.remove();
                 
-                advancedTableBody.appendChild(row);
+                if (th.dataset.sort === advancedSortState.column) {
+                    const icon = document.createElement('span');
+                    icon.className = 'sort-icon';
+                    icon.innerHTML = advancedSortState.direction === 'desc' ? '&#9660;' : '&#9650;'; // ▼ or ▲
+                    th.appendChild(icon);
+                }
             });
         }
 
@@ -1207,39 +1281,27 @@
 
         function handleSearch() {
             const query = itemNameInput.value.toLowerCase();
-            if (query.length < 2) {
-                return; // Do nothing if the query is too short
-            }
-
-            // Find the most relevant item from the mapping
-            const filteredItems = itemMapping
-                .filter(item => item.name.toLowerCase().includes(query) && !item.name.includes('(item)'));
-
+            if (query.length < 2) return;
+            const filteredItems = itemMapping.filter(item => item.name.toLowerCase().includes(query) && !item.name.includes('(item)'));
             if (filteredItems.length > 0) {
-                const bestMatch = filteredItems[0]; // The first result is the most relevant
-                itemNameInput.value = bestMatch.name; // Update the input field with the full name
-                suggestionsDiv.classList.add('hidden'); // Hide the suggestions dropdown
-                fetchAllData(bestMatch.name); // Fetch the data for the best match
+                const bestMatch = filteredItems[0];
+                itemNameInput.value = bestMatch.name;
+                suggestionsDiv.classList.add('hidden');
+                fetchAllData(bestMatch.name);
             }
         }
 
-        // Throttling function to prevent API spam
         function throttleApiCall(callback) {
             if (isApiThrottled) return;
-
             isApiThrottled = true;
-            searchBtn.disabled = true;
-            suggestItemBtn.disabled = true;
+            searchBtn.disabled = true; suggestItemBtn.disabled = true;
             suggestItemBtn.textContent = `Waiting...`;
-
-            callback(); // Execute the passed function
-
+            callback();
             setTimeout(() => {
                 isApiThrottled = false;
-                searchBtn.disabled = false;
-                suggestItemBtn.disabled = false;
+                searchBtn.disabled = false; suggestItemBtn.disabled = false;
                 suggestItemBtn.textContent = 'Suggest Item';
-            }, 500); // 0.5-second cooldown
+            }, 500);
         }
 
         itemNameInput.addEventListener('input', () => {
@@ -1248,9 +1310,7 @@
                 suggestionsDiv.classList.add('hidden');
                 return;
             }
-            const filteredItems = itemMapping
-                .filter(item => item.name.toLowerCase().includes(query) && !item.name.includes('(item)'))
-                .slice(0, 50);
+            const filteredItems = itemMapping.filter(item => item.name.toLowerCase().includes(query) && !item.name.includes('(item)')).slice(0, 50);
             suggestionsDiv.innerHTML = '';
             if (filteredItems.length > 0) {
                 filteredItems.forEach(item => {
@@ -1282,10 +1342,32 @@
         searchBtn.addEventListener('click', () => throttleApiCall(handleSearch));
         suggestItemBtn.addEventListener('click', () => throttleApiCall(suggestItem));
         
-        // Advanced View Event Listeners
+        // --- Advanced View Event Listeners ---
         modeToggleBtn.addEventListener('click', toggleViewMode);
-        advancedSort.addEventListener('change', populateAdvancedTable);
         advancedLimit.addEventListener('change', populateAdvancedTable);
+        advancedCategory.addEventListener('change', populateAdvancedTable);
+
+        advancedSort.addEventListener('change', () => {
+            const column = advancedSort.value;
+            advancedSortState.column = column;
+            // Set default direction based on selection. 'low' is ascending, others descending.
+            advancedSortState.direction = (column === 'low') ? 'asc' : 'desc';
+            populateAdvancedTable();
+        });
+
+        advancedTableHeader.addEventListener('click', (e) => {
+            const header = e.target.closest('th');
+            if (!header || !header.dataset.sort || header.dataset.sort === 'name') return; // Ignore clicks on non-sortable headers
+
+            const column = header.dataset.sort;
+            if (advancedSortState.column === column) {
+                advancedSortState.direction = advancedSortState.direction === 'desc' ? 'asc' : 'desc';
+            } else {
+                advancedSortState.column = column;
+                advancedSortState.direction = 'desc';
+            }
+            populateAdvancedTable();
+        });
         
         timeframeControls.addEventListener('click', (e) => {
             if (e.target.tagName === 'BUTTON') {
@@ -1304,7 +1386,6 @@
             if (!formulaModal.classList.contains('hidden') && !formulaModal.contains(e.target) && !calcHelpIcon.contains(e.target)) {
                 formulaModal.classList.add('hidden');
             }
-            // Hide confidence modal if click is outside
             if (!confidenceModal.classList.contains('hidden') && !confidenceModal.contains(e.target) && !e.target.closest('#confidence-help-icon')) {
                 confidenceModal.classList.add('hidden');
             }
@@ -1337,7 +1418,6 @@
             formulaModal.classList.toggle('hidden');
         });
 
-        // Event listener for the confidence help icon using delegation
         additionalInfoDiv.addEventListener('click', (e) => {
             const helpIcon = e.target.closest('#confidence-help-icon');
             if (helpIcon) {
@@ -1431,4 +1511,7 @@
     </script>
 </body>
 </html>
+
+
+
 
