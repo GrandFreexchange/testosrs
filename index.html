@@ -482,6 +482,7 @@
         let priceChart = null;
         let fetchController; 
         let currentItem = null;
+        let lastSuggestedItem = null; // ADDED THIS LINE
         let timeSeriesData = {}; // Store all timeframe data here
         let masterFlippableItems = []; // Holds the full sorted list of items
         let flippableItems = []; // Holds the current budget-filtered list
@@ -599,7 +600,8 @@
                     const priceInfo = latestData.data[id];
                     const dailyVolume = volumesData.data[id];
 
-                    if (!itemInfo || !priceInfo || !priceInfo.high || !priceInfo.low || !dailyVolume || priceInfo.low === 0 || dailyVolume < 1000) {
+                    // Allow low-volume items if they are very expensive (>250m)
+                    if (!itemInfo || !priceInfo || !priceInfo.high || !priceInfo.low || !dailyVolume || priceInfo.low === 0 || (dailyVolume < 1000 && priceInfo.low < 250000000)) {
                         return null;
                     }
                     
@@ -636,7 +638,7 @@
 
             if (budget === Number.MAX_SAFE_INTEGER) {
                  flippableItems = masterFlippableItems
-                    .filter(item => item.priceInfo.low > 10000000) // High Roller: items over 10m
+                    .filter(item => item.priceInfo.low > 250000000) // High Roller: items over 250m
                     .map(item => item.itemInfo);
             } else {
                 flippableItems = masterFlippableItems
@@ -750,8 +752,21 @@
                 showError("No items found for your current budget. Try increasing it.");
                 return;
             }
-            const item = flippableItems[Math.floor(Math.random() * flippableItems.length)];
+
+            // If there's only one item in the list, we can't pick a different one.
+            if (flippableItems.length === 1 && lastSuggestedItem && flippableItems[0].name === lastSuggestedItem.name) {
+                showError("Only one profitable item for this budget is available.");
+                return;
+            }
+
+            let item;
+            // Keep picking a random item until it's different from the last suggested one.
+            do {
+                item = flippableItems[Math.floor(Math.random() * flippableItems.length)];
+            } while (lastSuggestedItem && item.name === lastSuggestedItem.name && flippableItems.length > 1);
+
             if (item) {
+                lastSuggestedItem = item; // Remember the item we just suggested
                 itemNameInput.value = item.name;
                 fetchAllData(item.name);
             }
@@ -1414,3 +1429,6 @@
     </script>
 </body>
 </html>
+
+
+
