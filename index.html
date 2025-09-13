@@ -38,14 +38,14 @@
         }
 
         html[data-theme="light"] {
-            /* Light Theme */
-            --bg-dark: #fdfbf8;       /* Very light beige */
-            --bg-main: #f4f1ed;       /* Light beige */
-            --bg-contrast: #e9e5e1;   /* Slightly darker beige for contrast */
-            --border-color: #dcd7d1; /* Muted light brown for borders */
-            --text-primary: #3a3532;   /* Dark brown for primary text */
-            --text-secondary: #78716c;/* Muted brown for secondary text */
-            --chart-grid-color: rgba(58, 53, 50, 0.1);
+            /* Light Theme - Rich beige palette */
+            --bg-dark: #c4b49a;       /* Darker warm beige background */
+            --bg-main: #e8dcc6;       /* Cream beige main areas */
+            --bg-contrast: #d8cbb4;   /* Medium beige for contrast */
+            --border-color: #806a46;  /* Rich golden brown for borders */
+            --text-primary: #241f17;  /* Rich dark brown for primary text */
+            --text-secondary: #4a4035; /* More prominent brown for secondary text */
+            --chart-grid-color: rgba(61, 53, 40, 0.15);
         }
 
         body {
@@ -135,7 +135,8 @@
             filter: brightness(1.1);
         }
         html[data-theme="light"] .main-title {
-             color: #3a3532; /* Keep it dark for readability on light theme */
+             color: #2c2c2c; /* Dark grey for title to stand out on beige theme */
+             text-shadow: 2px 2px 3px rgba(0, 0, 0, 0.2); /* Subtle shadow */
         }
         
         #calculator-body {
