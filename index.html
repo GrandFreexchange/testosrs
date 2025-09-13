@@ -15,7 +15,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Enhanced OSRS Price & Flipping Tool</title>
     <!-- SEO Meta Description -->
-    <meta name="description" content="www.osrs.lol - Live OSRS Grand Exchange price data, trends, and flipping analysis for Old School RuneScape items.">
+    <meta name="description" content="Live OSRS Grand Exchange price data, trends, and flipping analysis for Old School RuneScape items.">
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="https://oldschool.runescape.wiki/images/Coins_10000.png">
     <!-- Tailwind CSS (Recommended in head for Play CDN) -->
@@ -127,6 +127,12 @@
             border: 1px solid var(--border-color);
             color: var(--text-primary);
         }
+        .table-row-hover {
+            background-color: var(--bg-contrast);
+        }
+        .table-row-hover:hover {
+            background-color: var(--bg-dark) !important;
+        }
         .main-title {
             color: var(--accent-gold);
             transition: all 0.2s ease-in-out;
@@ -136,7 +142,6 @@
         }
         html[data-theme="light"] .main-title {
              color: #2c2c2c; /* Dark grey for title to stand out on beige theme */
-             text-shadow: 2px 2px 3px rgba(0, 0, 0, 0.2); /* Subtle shadow */
         }
         
         #calculator-body {
@@ -213,7 +218,16 @@
                     <a href="" target="_blank" rel="noopener noreferrer" class="main-title no-underline">
                         <h1 class="text-4xl font-bold mb-2">Quick and FREE OSRS Flipping Tool</h1>
                     </a>
-                    <p class="text-lg text-secondary">Grandfreexchange.com - Live prices, volume analysis, and trend confidence.</p>
+                    <p class="text-lg text-secondary flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                            <path d="M11 15h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 14"/>
+                            <path d="m7 21 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9"/>
+                            <path d="m2 16 6 6"/>
+                            <circle cx="16" cy="9" r="2.9"/>
+                            <circle cx="6" cy="5" r="3"/>
+                        </svg>
+                        osrs.lol - Live prices, volume analysis, and trend confidence.
+                    </p>
                 </div>
                 <img src="https://oldschool.runescape.wiki/images/Coins_10000.png" alt="OSRS GP" class="h-12 transform -scale-x-100">
             </div>
@@ -243,7 +257,10 @@
                     <label for="budget-slider" class="block text-sm font-medium text-secondary text-center mb-1">Budget: <span id="budget-value" class="text-primary font-bold">1m GP</span></label>
                     <input id="budget-slider" type="range" min="0" max="18" value="5" step="1" class="w-full h-2 rounded-lg appearance-none cursor-pointer">
                 </div>
-                <button id="suggest-item-btn" class="suggest-btn px-6 py-2 rounded-lg font-medium w-full md:w-auto">Suggest Item</button>
+                <div class="flex gap-2 w-full md:w-auto">
+                    <button id="mode-toggle-btn" class="suggest-btn px-6 py-2 rounded-lg font-medium flex-1 md:flex-none">Advanced</button>
+                    <button id="suggest-item-btn" class="suggest-btn px-6 py-2 rounded-lg font-medium flex-1 md:flex-none">Suggest Item</button>
+                </div>
             </div>
         </div>
 
@@ -312,7 +329,7 @@
                             <!-- Help Icon -->
                             <svg id="calc-help-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-2 h-5 w-5 text-secondary hover:text-primary cursor-pointer transition-colors"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
                         </h3>
-                        <svg id="calculator-arrow" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform transform"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        <svg id="calculator-arrow" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform transform rotate-180"><polyline points="6 9 12 15 18 9"></polyline></svg>
                     </div>
                     
                     <!-- Formula Explanation Modal -->
@@ -326,7 +343,7 @@
                     </div>
 
                     <!-- Body is now collapsible and expanded by default when an item is loaded -->
-                    <div id="calculator-body" class="p-4 flex flex-col md:flex-row items-center gap-4 border-custom">
+                    <div id="calculator-body" class="p-4 flex flex-col md:flex-row items-center gap-4 border-custom collapsed">
                         <!-- Input Fields Section -->
                         <div class="w-full md:flex-grow grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div>
@@ -352,6 +369,58 @@
                             <p id="net-profit-result" class="text-2xl font-bold">0 GP</p>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced View Section -->
+        <div id="advanced-container" class="hidden mt-8">
+            <div class="bg-main p-6 rounded-lg border border-custom">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-primary">Advanced Market View</h2>
+                </div>
+                
+                <!-- Advanced Controls -->
+                <div class="flex flex-col md:flex-row gap-4 mb-6">
+                    <div class="flex-1">
+                        <label for="advanced-sort" class="block text-sm font-medium text-secondary mb-1">Sort by:</label>
+                        <select id="advanced-sort" class="w-full p-2 rounded-md calc-input focus:outline-none focus-accent">
+                            <option value="profit">Profit (High to Low)</option>
+                            <option value="volume">Volume (High to Low)</option>
+                            <option value="margin">Margin % (High to Low)</option>
+                            <option value="price">Price (Low to High)</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label for="advanced-limit" class="block text-sm font-medium text-secondary mb-1">Show items:</label>
+                        <select id="advanced-limit" class="w-full p-2 rounded-md calc-input focus:outline-none focus-accent">
+                            <option value="25">Top 25</option>
+                            <option value="50">Top 50</option>
+                            <option value="100">Top 100</option>
+                            <option value="200">Top 200</option>
+                            <option value="500">Top 500</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Advanced Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-custom">
+                                <th class="text-left py-3 px-2 text-secondary font-medium">Item</th>
+                                <th class="text-right py-3 px-2 text-secondary font-medium">Low</th>
+                                <th class="text-right py-3 px-2 text-secondary font-medium">High</th>
+                                <th class="text-right py-3 px-2 text-secondary font-medium">Margin</th>
+                                <th class="text-right py-3 px-2 text-secondary font-medium">Profit</th>
+                                <th class="text-right py-3 px-2 text-secondary font-medium">Volume</th>
+                                <th class="text-right py-3 px-2 text-secondary font-medium">Limit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="advanced-table-body">
+                            <!-- Table rows will be populated by JavaScript -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -381,6 +450,12 @@
         const darkIcon = document.getElementById('theme-icon-dark');
         const suggestItemBtn = document.getElementById('suggest-item-btn');
         const resetZoomBtn = document.getElementById('reset-zoom-btn');
+        // Advanced View References
+        const modeToggleBtn = document.getElementById('mode-toggle-btn');
+        const advancedContainer = document.getElementById('advanced-container');
+        const advancedSort = document.getElementById('advanced-sort');
+        const advancedLimit = document.getElementById('advanced-limit');
+        const advancedTableBody = document.getElementById('advanced-table-body');
         // Profit Calculator References
         const calcQuantityInput = document.getElementById('calc-quantity');
         const calcBuyPriceInput = document.getElementById('calc-buy-price');
@@ -410,6 +485,7 @@
         let masterFlippableItems = []; // Holds the full sorted list of items
         let flippableItems = []; // Holds the current budget-filtered list
         let isApiThrottled = false; // Flag to prevent API spam
+        let isAdvancedMode = false; // Flag to track current view mode
         
         // Custom budget steps for the slider
         const budgetSteps = [
@@ -658,8 +734,6 @@
                 calculateAndDisplayTrend(timeSeriesData['1d'], dailyVolume);
                 updateDynamicContent('5d');
 
-                calculatorBody.classList.remove('collapsed');
-                calculatorArrow.classList.remove('rotate-180');
 
 
             } catch (error) {
@@ -1012,6 +1086,105 @@
             errorDiv.classList.add('hidden');
         }
 
+        // --- Advanced View Functions ---
+        function toggleViewMode() {
+            if (isAdvancedMode) {
+                // Switch to Simple mode
+                isAdvancedMode = false;
+                modeToggleBtn.textContent = 'Advanced';
+                resultsContainer.classList.remove('hidden');
+                advancedContainer.classList.add('hidden');
+            } else {
+                // Switch to Advanced mode
+                isAdvancedMode = true;
+                modeToggleBtn.textContent = 'Simple';
+                resultsContainer.classList.add('hidden');
+                advancedContainer.classList.remove('hidden');
+                populateAdvancedTable();
+            }
+        }
+
+        function populateAdvancedTable() {
+            if (masterFlippableItems.length === 0) {
+                advancedTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-secondary">No data available. Please wait for market analysis to complete.</td></tr>';
+                return;
+            }
+
+            const sortBy = advancedSort.value;
+            const limit = parseInt(advancedLimit.value);
+            
+            // Sort items based on selection
+            let sortedItems = [...masterFlippableItems];
+            switch (sortBy) {
+                case 'profit':
+                    sortedItems.sort((a, b) => {
+                        const profitA = (a.priceInfo.high - a.priceInfo.low) - Math.floor(a.priceInfo.high * (taxExemptIds.has(a.itemInfo.id) || a.priceInfo.high > 250000000 ? 0.01 : 0.02));
+                        const profitB = (b.priceInfo.high - b.priceInfo.low) - Math.floor(b.priceInfo.high * (taxExemptIds.has(b.itemInfo.id) || b.priceInfo.high > 250000000 ? 0.01 : 0.02));
+                        return profitB - profitA;
+                    });
+                    break;
+                case 'volume':
+                    sortedItems.sort((a, b) => b.flipScore / ((a.priceInfo.high - a.priceInfo.low) - Math.floor(a.priceInfo.high * (taxExemptIds.has(a.itemInfo.id) || a.priceInfo.high > 250000000 ? 0.01 : 0.02))) - a.flipScore / ((b.priceInfo.high - b.priceInfo.low) - Math.floor(b.priceInfo.high * (taxExemptIds.has(b.itemInfo.id) || b.priceInfo.high > 250000000 ? 0.01 : 0.02))));
+                    break;
+                case 'margin':
+                    sortedItems.sort((a, b) => {
+                        const marginA = ((a.priceInfo.high - a.priceInfo.low) / a.priceInfo.low) * 100;
+                        const marginB = ((b.priceInfo.high - b.priceInfo.low) / b.priceInfo.low) * 100;
+                        return marginB - marginA;
+                    });
+                    break;
+                case 'price':
+                    sortedItems.sort((a, b) => a.priceInfo.low - b.priceInfo.low);
+                    break;
+            }
+
+            // Limit results
+            sortedItems = sortedItems.slice(0, limit);
+
+            // Populate table
+            advancedTableBody.innerHTML = '';
+            sortedItems.forEach(item => {
+                const margin = item.priceInfo.high - item.priceInfo.low;
+                const marginPercent = ((margin / item.priceInfo.low) * 100).toFixed(2);
+                const taxRate = taxExemptIds.has(item.itemInfo.id) || item.priceInfo.high > 250000000 ? 0.01 : 0.02;
+                const tax = Math.floor(item.priceInfo.high * taxRate);
+                const profit = margin - tax;
+                const volume = Math.floor(item.flipScore / profit);
+
+                const row = document.createElement('tr');
+                row.className = 'border-b border-custom table-row-hover cursor-pointer transition-colors duration-200';
+                row.innerHTML = `
+                    <td class="py-3 px-2">
+                        <div class="flex items-center">
+                            <img src="https://static.runelite.net/cache/item/icon/${item.itemInfo.id}.png" 
+                                 class="w-6 h-6 mr-2" 
+                                 onerror="this.style.display='none'">
+                            <span class="text-primary font-medium">${item.itemInfo.name}</span>
+                        </div>
+                    </td>
+                    <td class="text-right py-3 px-2 text-loss">${item.priceInfo.low.toLocaleString()}</td>
+                    <td class="text-right py-3 px-2 text-profit">${item.priceInfo.high.toLocaleString()}</td>
+                    <td class="text-right py-3 px-2 text-accent">${marginPercent}%</td>
+                    <td class="text-right py-3 px-2 ${profit > 0 ? 'text-profit' : 'text-loss'}">${profit.toLocaleString()}</td>
+                    <td class="text-right py-3 px-2 text-volume">${volume.toLocaleString()}</td>
+                    <td class="text-right py-3 px-2 text-secondary">${item.itemInfo.limit ? item.itemInfo.limit.toLocaleString() : 'N/A'}</td>
+                `;
+                
+                // Add click handler to load item details
+                row.addEventListener('click', () => {
+                    itemNameInput.value = item.itemInfo.name;
+                    // Switch back to simple mode to show item details
+                    isAdvancedMode = false;
+                    modeToggleBtn.textContent = 'Advanced';
+                    resultsContainer.classList.remove('hidden');
+                    advancedContainer.classList.add('hidden');
+                    throttleApiCall(() => fetchAllData(item.itemInfo.name));
+                });
+                
+                advancedTableBody.appendChild(row);
+            });
+        }
+
         // --- Event Listeners ---
 
         function handleSearch() {
@@ -1090,6 +1263,11 @@
 
         searchBtn.addEventListener('click', () => throttleApiCall(handleSearch));
         suggestItemBtn.addEventListener('click', () => throttleApiCall(suggestItem));
+        
+        // Advanced View Event Listeners
+        modeToggleBtn.addEventListener('click', toggleViewMode);
+        advancedSort.addEventListener('change', populateAdvancedTable);
+        advancedLimit.addEventListener('change', populateAdvancedTable);
         
         timeframeControls.addEventListener('click', (e) => {
             if (e.target.tagName === 'BUTTON') {
