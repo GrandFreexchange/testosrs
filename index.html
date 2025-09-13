@@ -235,7 +235,7 @@
             <div class="flex justify-center items-center space-x-4">
                 <img src="https://oldschool.runescape.wiki/images/Coins_10000.png" alt="OSRS GP" class="h-12">
                 <div>
-                    <a href="" target="_blank" rel="noopener noreferrer" class="main-title no-underline">
+                    <a href="/" class="main-title no-underline">
                         <h1 class="text-4xl font-bold mb-2">Quick and FREE OSRS Flipping Tool</h1>
                     </a>
                     <p class="text-lg text-secondary flex items-center justify-center flex-wrap gap-1">
@@ -1150,12 +1150,14 @@
 
         // --- Advanced View Functions ---
         function toggleViewMode() {
+            const url = new URL(window.location);
             if (isAdvancedMode) {
                 // Switch to Simple mode
                 isAdvancedMode = false;
                 modeToggleBtn.textContent = 'Advanced';
                 resultsContainer.classList.remove('hidden');
                 advancedContainer.classList.add('hidden');
+                url.searchParams.delete('view');
             } else {
                 // Switch to Advanced mode
                 isAdvancedMode = true;
@@ -1163,6 +1165,12 @@
                 resultsContainer.classList.add('hidden');
                 advancedContainer.classList.remove('hidden');
                 populateAdvancedTable();
+                url.searchParams.set('view', 'advanced');
+            }
+            try {
+                 history.pushState({}, '', url);
+            } catch (e) {
+                console.warn("Could not update URL. This is expected in a sandboxed environment.", e);
             }
         }
         
@@ -1478,6 +1486,11 @@
         async function onAppReady() {
             const urlParams = new URLSearchParams(window.location.search);
             const slugFromUrl = urlParams.get('item');
+            const viewFromUrl = urlParams.get('view');
+
+            if (viewFromUrl === 'advanced') {
+                toggleViewMode();
+            }
 
             if (slugFromUrl) {
                 const itemId = slugFromUrl.split('-')[0];
@@ -1512,9 +1525,5 @@
     </script>
 </body>
 </html>
-
-
-
-
 
 
