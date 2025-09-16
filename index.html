@@ -845,22 +845,23 @@
             if (prices) {
                 const highPrice = prices.high;
                 const lowPrice = prices.low;
-                const margin = highPrice - lowPrice;
-                const marginPercent = lowPrice > 0 ? (margin / lowPrice) * 100 : 0;
                 
                 let taxRate = 0.02; // Default to 2%
                 if (taxExemptIds.has(item.id) || highPrice > 250000000) {
                     taxRate = 0.01;
                 }
                 const tax = Math.floor(highPrice * taxRate);
-                const profit = margin - tax;
+                
+                // Net margin is the raw margin minus the tax
+                const netMargin = (highPrice - lowPrice) - tax;
+                const netMarginPercent = lowPrice > 0 ? (netMargin / lowPrice) * 100 : 0;
 
                 priceInfoDiv.innerHTML = `
                     <p><strong>High Price:</strong> <span class="text-profit clickable-price" data-price="${highPrice}" data-target="sell">${highPrice.toLocaleString()} GP</span></p>
                     <p><strong>Low Price:</strong> <span class="text-loss clickable-price" data-price="${lowPrice}" data-target="buy">${lowPrice.toLocaleString()} GP</span></p>
                     <hr class="my-3 border-custom">
-                    <p><strong>Margin:</strong> <span class="text-accent">${margin.toLocaleString()} GP (${marginPercent.toFixed(2)}%)</span></p>
-                    <p><strong>Profit/Flip:</strong> <span class="${profit > 0 ? 'text-profit' : 'text-loss'} font-bold">${profit.toLocaleString()} GP</span></p>
+                    <p><strong>Net Margin:</strong> <span class="text-accent">${netMargin.toLocaleString()} GP (${netMarginPercent.toFixed(2)}%)</span></p>
+                    <p><strong>Profit/Flip:</strong> <span class="${netMargin > 0 ? 'text-profit' : 'text-loss'} font-bold">${netMargin.toLocaleString()} GP</span></p>
                 `;
             } else {
                 priceInfoDiv.innerHTML = `<p class="text-secondary">No live price data available.</p>`;
@@ -927,12 +928,13 @@
             const hourlySlopeEquivalent = slope * 12;
             const relativeSlope = (hourlySlopeEquivalent / avgPrice) * 100; // Trend as a percentage change per hour (equivalent)
 
-            // 3. Determine trend text and color
+            // 3. Determine trend text and color with a tolerance for "Stable"
             let trendText, trendColor;
-            if (relativeSlope > 0.1) {
+            const trendThreshold = 0.05; // 0.05% change per hour
+            if (relativeSlope > trendThreshold) {
                 trendText = 'Rising';
                 trendColor = 'text-profit';
-            } else if (relativeSlope < -0.1) {
+            } else if (relativeSlope < -trendThreshold) {
                 trendText = 'Falling';
                 trendColor = 'text-loss';
             } else {
@@ -940,9 +942,11 @@
                 trendColor = 'text-secondary';
             }
 
-            // 4. Determine confidence based on volume
+            // 4. Determine confidence based on volume with more tiers
             let confidence;
-            if (dailyVolume > 50000 || (currentItem && dailyVolume > currentItem.limit * 5)) {
+            if (dailyVolume > 100000) {
+                confidence = 'Very High';
+            } else if (dailyVolume > 50000 || (currentItem && dailyVolume > currentItem.limit * 5)) {
                 confidence = 'High';
             } else if (dailyVolume > 10000 || (currentItem && dailyVolume > currentItem.limit)) {
                 confidence = 'Medium';
@@ -1216,7 +1220,11 @@
             // 2. Sort the filtered items
             const getProfit = item => (item.priceInfo.high - item.priceInfo.low) - Math.floor(item.priceInfo.high * (taxExemptIds.has(item.itemInfo.id) || item.priceInfo.high > 250000000 ? 0.01 : 0.02));
             const getVolume = item => { const profit = getProfit(item); return profit > 0 ? Math.floor(item.flipScore / profit) : 0; };
-            const getMargin = item => item.priceInfo.low > 0 ? ((item.priceInfo.high - item.priceInfo.low) / item.priceInfo.low) * 100 : 0;
+            const getMargin = item => {
+                const tax = Math.floor(item.priceInfo.high * (taxExemptIds.has(item.itemInfo.id) || item.priceInfo.high > 250000000 ? 0.01 : 0.02));
+                const netMargin = (item.priceInfo.high - item.priceInfo.low) - tax;
+                return item.priceInfo.low > 0 ? (netMargin / item.priceInfo.low) * 100 : 0;
+            };
 
             filteredItems.sort((a, b) => {
                 let valA, valB;
@@ -1243,6 +1251,7 @@
             } else {
                 finalItems.forEach(item => {
                     const profit = getProfit(item);
+                    const netMarginPercent = getMargin(item);
                     const row = document.createElement('tr');
                     row.className = 'border-b border-custom table-row-hover cursor-pointer transition-colors duration-200';
                     row.innerHTML = `
@@ -1256,7 +1265,7 @@
                         </td>
                         <td class="text-right py-3 px-2 text-loss">${item.priceInfo.low.toLocaleString()}</td>
                         <td class="text-right py-3 px-2 text-profit">${item.priceInfo.high.toLocaleString()}</td>
-                        <td class="text-right py-3 px-2 text-accent">${getMargin(item).toFixed(2)}%</td>
+                        <td class="text-right py-3 px-2 text-accent">${netMarginPercent.toFixed(2)}%</td>
                         <td class="text-right py-3 px-2 ${profit > 0 ? 'text-profit' : 'text-loss'}">${profit.toLocaleString()}</td>
                         <td class="text-right py-3 px-2 text-volume">${getVolume(item).toLocaleString()}</td>
                         <td class="text-right py-3 px-2 text-secondary">${item.itemInfo.limit ? item.itemInfo.limit.toLocaleString() : 'N/A'}</td>
@@ -1296,7 +1305,7 @@
                 const bestMatch = filteredItems[0];
                 itemNameInput.value = bestMatch.name;
                 suggestionsDiv.classList.add('hidden');
-                fetchAllData(bestMatch.name);
+                throttleApiCall(() => fetchAllData(bestMatch.name));
             }
         }
 
@@ -1525,5 +1534,3 @@
     </script>
 </body>
 </html>
-
-
