@@ -402,8 +402,8 @@
                 </div>
                 
                 <!-- Advanced Controls -->
-                <div class="flex flex-col md:flex-row gap-4 mb-6">
-                     <div class="flex-1">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                     <div>
                         <label for="advanced-category" class="block text-sm font-medium text-secondary mb-1">Category:</label>
                         <select id="advanced-category" class="w-full p-2 rounded-md calc-input focus:outline-none focus-accent">
                             <option value="all">All Items</option>
@@ -418,7 +418,7 @@
                             <option value="weapons">Weapons</option>
                         </select>
                     </div>
-                    <div class="flex-1">
+                    <div>
                         <label for="advanced-sort" class="block text-sm font-medium text-secondary mb-1">Sort by:</label>
                         <select id="advanced-sort" class="w-full p-2 rounded-md calc-input focus:outline-none focus-accent">
                             <option value="profit">Profit (High to Low)</option>
@@ -427,7 +427,7 @@
                             <option value="low">Price (Low to High)</option>
                         </select>
                     </div>
-                    <div class="flex-1">
+                    <div>
                         <label for="advanced-limit" class="block text-sm font-medium text-secondary mb-1">Show items:</label>
                         <select id="advanced-limit" class="w-full p-2 rounded-md calc-input focus:outline-none focus-accent">
                             <option value="25">Top 25</option>
@@ -438,6 +438,13 @@
                         </select>
                     </div>
                 </div>
+
+                <!-- "Show All" Checkbox -->
+                <div class="flex items-center my-4">
+                    <input id="advanced-show-all" type="checkbox" class="h-4 w-4 rounded calc-input focus:outline-none focus-accent" style="box-shadow: none;">
+                    <label for="advanced-show-all" class="ml-2 text-sm text-secondary">Show All Items (ignores profitability)</label>
+                </div>
+
 
                 <!-- Advanced Table -->
                 <div class="overflow-x-auto">
@@ -492,6 +499,7 @@
         const advancedCategory = document.getElementById('advanced-category');
         const advancedSort = document.getElementById('advanced-sort');
         const advancedLimit = document.getElementById('advanced-limit');
+        const advancedShowAllCheckbox = document.getElementById('advanced-show-all');
         const advancedTableHeader = document.getElementById('advanced-table-header');
         const advancedTableBody = document.getElementById('advanced-table-body');
         // Profit Calculator References
@@ -512,7 +520,7 @@
 
         // --- API Configuration ---
         const WIKI_API_HEADERS = {
-          'User-Agent': 'GrandFreexchange @DOPEY in Discord'
+          'User-Agent': 'GrandFreexchange.github.io - Contact @DOPEY on Discord'
         };
 
         let itemMapping = [];
@@ -522,6 +530,8 @@
         let lastSuggestedItem = null;
         let timeSeriesData = {}; // Store all timeframe data here
         let masterFlippableItems = []; // Holds the full sorted list of items
+        let latestPriceData = {}; // Holds the latest price for ALL items
+        let allVolumesData = {}; // Holds the volume for ALL traded items
         let flippableItems = []; // Holds the current budget-filtered list
         let isApiThrottled = false; // Flag to prevent API spam
         let isAdvancedMode = false; // Flag to track current view mode
@@ -547,6 +557,14 @@
             9375, 9377, 9378, 9379, 9380, 9381,
             // Old School Bond
             13190
+        ]);
+        
+        // **FIX**: Definitive list of Ore and Bar IDs for accurate filtering
+        const oreAndBarIds = new Set([
+            // Ores
+            436, 438, 440, 442, 453, 444, 447, 449, 451, 21347, 13358, 24227, 1436, 7936, 12011, 13361, 21622, 6971, 6973, 6975, 6977, 6979, 6981, 6983, 3211, 668,
+            // Bars
+            2349, 2351, 2353, 2355, 2357, 2359, 2361, 2363, 9170, 23493, 13359, 2365
         ]);
 
         // --- Theme Functions ---
@@ -630,13 +648,15 @@
 
                 const volumesData = await volumesRes.json();
                 const latestData = await latestRes.json();
+                latestPriceData = latestData.data; // Store latest prices globally
+                allVolumesData = volumesData.data; // Store all volumes globally
 
                 const allTradedItems = Object.keys(volumesData.data);
 
                 const scoredItems = allTradedItems.map(id => {
                     const itemInfo = itemMapping.find(i => i.id == id);
-                    const priceInfo = latestData.data[id];
-                    const dailyVolume = volumesData.data[id];
+                    const priceInfo = latestPriceData[id];
+                    const dailyVolume = allVolumesData[id];
 
                     // Allow low-volume items if they are very expensive (>250m)
                     if (!itemInfo || !priceInfo || !priceInfo.high || !priceInfo.low || !dailyVolume || priceInfo.low === 0 || (dailyVolume < 1000 && priceInfo.low < 250000000)) {
@@ -1182,47 +1202,89 @@
             armour: [' helm', ' body', ' legs', ' skirt', ' shield', ' boots', ' gloves', ' vambraces', ' coif', ' chaps', ' platebody', ' platelegs', ' plateskirt', ' full helm', ' kiteshield', ' dragonfire ward', ' defender'],
             weapons: ['scimitar', 'longsword', 'dagger', 'warhammer', 'battleaxe', 'mace', '2h sword', 'halberd', ' cbow', ' xbow', ' bow', ' staff', ' spear', ' whip', ' abyssal bludgeon', ' godsword', ' tentacle'],
             food: ['shark', 'manta ray', 'anglerfish', 'karambwan', 'sea turtle'],
-            herbs: ['grimy', 'clean', 'ranarr', 'torstol', 'snapdragon', 'kwuarm', 'cadantine', 'lantadyme', 'irit', 'avantoe', 'dwarf weed'],
-            logs: ['logs'],
-            ores: [' ore', ' bar'],
+            herbs: ['ranarr weed', 'toadflax', 'irit leaf', 'avantoe', 'kwuarm', 'snapdragon', 'cadantine', 'lantadyme', 'dwarf weed', 'torstol'],
+            logs: [' logs'],
             potions: ['potion(', ' antifire(', ' super', ' restore(', ' ranging(', ' compost', 'antidote++'],
-            runes: ['rune'],
+            runes: [' rune'],
             seeds: [' seed']
         };
 
         function filterByCategory(items, category) {
             if (category === 'all') return items;
             
+            // Handle ores and bars by ID for 100% accuracy
+            if (category === 'ores') {
+                return items.filter(item => oreAndBarIds.has(item.itemInfo.id));
+            }
+
             const keywords = categoryKeywords[category] || [];
             
             return items.filter(item => {
                 const name = item.itemInfo.name.toLowerCase();
+                
                 // Special handling for herbs to exclude seeds
                 if (category === 'herbs' && name.includes('seed')) {
                     return false;
                 }
+
                 return keywords.some(keyword => name.includes(keyword));
             });
         }
 
         function populateAdvancedTable() {
-            if (masterFlippableItems.length === 0) {
-                advancedTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-secondary">No data available. Please wait for market analysis to complete.</td></tr>';
+            const showAll = advancedShowAllCheckbox.checked;
+
+            if (Object.keys(latestPriceData).length === 0) {
+                advancedTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-secondary">Loading market data... Please wait.</td></tr>';
+                return;
+            }
+            
+            if (!showAll && masterFlippableItems.length === 0) {
+                advancedTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-secondary">No profitable items found. Try increasing your budget or check "Show All".</td></tr>';
                 return;
             }
 
             const category = advancedCategory.value;
             const limit = parseInt(advancedLimit.value);
+
+            let sourceItems;
+            if (showAll) {
+                // Use the complete item map, enriched with the latest price data
+                sourceItems = itemMapping.map(item => {
+                    const priceInfo = latestPriceData[item.id];
+                    return {
+                        itemInfo: item,
+                        priceInfo: priceInfo || { high: 0, low: 0 },
+                        flipScore: 0
+                    };
+                });
+            } else {
+                // Use the pre-filtered list of profitable items
+                sourceItems = masterFlippableItems;
+            }
             
             // 1. Filter by category first
-            let filteredItems = filterByCategory(masterFlippableItems, category);
+            let filteredItems = filterByCategory(sourceItems, category);
             
             // 2. Sort the filtered items
-            const getProfit = item => (item.priceInfo.high - item.priceInfo.low) - Math.floor(item.priceInfo.high * (taxExemptIds.has(item.itemInfo.id) || item.priceInfo.high > 250000000 ? 0.01 : 0.02));
-            const getVolume = item => { const profit = getProfit(item); return profit > 0 ? Math.floor(item.flipScore / profit) : 0; };
-            const getMargin = item => {
+            const getProfit = item => {
+                if (!item.priceInfo || !item.priceInfo.high || !item.priceInfo.low) return -Infinity;
                 const tax = Math.floor(item.priceInfo.high * (taxExemptIds.has(item.itemInfo.id) || item.priceInfo.high > 250000000 ? 0.01 : 0.02));
-                const netMargin = (item.priceInfo.high - item.priceInfo.low) - tax;
+                return (item.priceInfo.high - item.priceInfo.low) - tax;
+            };
+            
+            const getVolume = item => {
+                if (!showAll) {
+                    const profit = getProfit(item);
+                    return profit > 0 ? Math.floor(item.flipScore / profit) : 0;
+                } else {
+                    return allVolumesData[item.itemInfo.id] || 0;
+                }
+            };
+
+            const getMargin = item => {
+                if (!item.priceInfo || !item.priceInfo.low) return -Infinity;
+                const netMargin = getProfit(item);
                 return item.priceInfo.low > 0 ? (netMargin / item.priceInfo.low) * 100 : 0;
             };
 
@@ -1230,10 +1292,13 @@
                 let valA, valB;
                 switch (advancedSortState.column) {
                     case 'profit': valA = getProfit(a); valB = getProfit(b); break;
-                    case 'volume': valA = getVolume(a); valB = getVolume(b); break;
+                    case 'volume': 
+                         valA = getVolume(a); 
+                         valB = getVolume(b);
+                         break;
                     case 'margin': valA = getMargin(a); valB = getMargin(b); break;
-                    case 'low': valA = a.priceInfo.low; valB = b.priceInfo.low; break;
-                    case 'high': valA = a.priceInfo.high; valB = b.priceInfo.high; break;
+                    case 'low': valA = a.priceInfo.low || 0; valB = b.priceInfo.low || 0; break;
+                    case 'high': valA = a.priceInfo.high || 0; valB = b.priceInfo.high || 0; break;
                     case 'limit': valA = a.itemInfo.limit || 0; valB = b.itemInfo.limit || 0; break;
                     default: return 0;
                 }
@@ -1252,6 +1317,7 @@
                 finalItems.forEach(item => {
                     const profit = getProfit(item);
                     const netMarginPercent = getMargin(item);
+                    const volume = getVolume(item);
                     const row = document.createElement('tr');
                     row.className = 'border-b border-custom table-row-hover cursor-pointer transition-colors duration-200';
                     row.innerHTML = `
@@ -1263,11 +1329,11 @@
                                 <span class="text-primary font-medium">${item.itemInfo.name}</span>
                             </div>
                         </td>
-                        <td class="text-right py-3 px-2 text-loss">${item.priceInfo.low.toLocaleString()}</td>
-                        <td class="text-right py-3 px-2 text-profit">${item.priceInfo.high.toLocaleString()}</td>
-                        <td class="text-right py-3 px-2 text-accent">${netMarginPercent.toFixed(2)}%</td>
-                        <td class="text-right py-3 px-2 ${profit > 0 ? 'text-profit' : 'text-loss'}">${profit.toLocaleString()}</td>
-                        <td class="text-right py-3 px-2 text-volume">${getVolume(item).toLocaleString()}</td>
+                        <td class="text-right py-3 px-2 text-loss">${item.priceInfo.low ? item.priceInfo.low.toLocaleString() : 'N/A'}</td>
+                        <td class="text-right py-3 px-2 text-profit">${item.priceInfo.high ? item.priceInfo.high.toLocaleString() : 'N/A'}</td>
+                        <td class="text-right py-3 px-2 text-accent">${isFinite(netMarginPercent) ? netMarginPercent.toFixed(2) + '%' : 'N/A'}</td>
+                        <td class="text-right py-3 px-2 ${profit > 0 ? 'text-profit' : 'text-loss'}">${isFinite(profit) ? profit.toLocaleString() : 'N/A'}</td>
+                        <td class="text-right py-3 px-2 text-volume">${typeof volume === 'number' ? volume.toLocaleString() : 'N/A'}</td>
                         <td class="text-right py-3 px-2 text-secondary">${item.itemInfo.limit ? item.itemInfo.limit.toLocaleString() : 'N/A'}</td>
                     `;
                     row.addEventListener('click', () => {
@@ -1364,6 +1430,7 @@
         modeToggleBtn.addEventListener('click', toggleViewMode);
         advancedLimit.addEventListener('change', populateAdvancedTable);
         advancedCategory.addEventListener('change', populateAdvancedTable);
+        advancedShowAllCheckbox.addEventListener('change', populateAdvancedTable);
 
         advancedSort.addEventListener('change', () => {
             const column = advancedSort.value;
@@ -1534,3 +1601,4 @@
     </script>
 </body>
 </html>
+
