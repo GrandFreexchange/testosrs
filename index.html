@@ -702,7 +702,7 @@
                 flippableItems = masterFlippableItems
                     .filter(item => {
                         const price = item.priceInfo.low;
-                        const minPrice = budget > 1000000 ? budget * 0.1 : 1; // Only show items >10% of budget if budget is >1m
+                        const minPrice = budget > 1000000 ? budget * 0.01 : 1; // Only show items >1% of budget if budget is >1m
                         return price <= budget && price >= minPrice;
                     })
                     .map(item => item.itemInfo);
@@ -1601,3 +1601,4 @@
     </script>
 </body>
 </html>
+
