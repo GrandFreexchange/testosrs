@@ -659,7 +659,7 @@
                     const dailyVolume = allVolumesData[id];
 
                     // Allow low-volume items if they are very expensive (>250m)
-                    if (!itemInfo || !priceInfo || !priceInfo.high || !priceInfo.low || !dailyVolume || priceInfo.low === 0 || (dailyVolume < 1000 && priceInfo.low < 250000000)) {
+                    if (!itemInfo || !priceInfo || !priceInfo.high || !priceInfo.low || !dailyVolume || priceInfo.low === 0) {
                         return null;
                     }
                     
@@ -1601,4 +1601,3 @@
     </script>
 </body>
 </html>
-
