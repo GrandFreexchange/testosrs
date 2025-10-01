@@ -613,7 +613,24 @@
             try {
                 const response = await fetch('https://prices.runescape.wiki/api/v1/osrs/mapping', { headers: WIKI_API_HEADERS });
                 if (!response.ok) throw new Error('Network response was not ok');
-                itemMapping = await response.json();
+                
+                let originalItemMapping = await response.json();
+
+                // Expanded list of item IDs to exclude for Deadman Mode, Leagues, etc.
+                const excludedIds = new Set([
+                    // Deadman & Ancient Warrior's Equipment
+                    22613, 22616, 22610, 22619, 22622, 22625, 22628, 22631, 
+                    22647, 22638, 22641, 22644, 22636, 22634, 12404, 12411, 
+                    12418, 13923, 13929, 13941, 13953, 13957, 24617, 27468,
+                    27471, 27474, 27477,
+                    // Leagues Rewards
+                    24422, 24423, 24424, 25016, 25017, 25018, 25019, 25020, 
+                    25021, 25022, 25023, 25024, 25025, 25026, 25027, 26364, 
+                    26366, 26368, 26374, 26376, 26378
+                ]);
+
+                itemMapping = originalItemMapping.filter(item => !excludedIds.has(item.id));
+
                 await loadFlippableItems(); // Load dynamic list after mapping is ready
             } catch (error) {
                 showError('Could not load item data. Please refresh the page.');
@@ -631,7 +648,7 @@
             const selectedItems = shuffled.slice(0, 3);
 
             if (selectedItems.length === 3) {
-                const placeholderText = `e.g. ${selectedItems[0].name}, ${selectedItems[1].name}, ${selectedItems[2].name}`;
+                const placeholderText = `e.g. ${selectedItems[0].itemInfo.name}, ${selectedItems[1].itemInfo.name}, ${selectedItems[2].itemInfo.name}`;
                 itemNameInput.placeholder = placeholderText;
             }
         }
@@ -698,16 +715,14 @@
 
             if (budget === Number.MAX_SAFE_INTEGER) {
                  flippableItems = masterFlippableItems
-                    .filter(item => item.priceInfo.low > 250000000) // High Roller: items over 250m
-                    .map(item => item.itemInfo);
+                    .filter(item => item.priceInfo.low > 250000000); // High Roller: items over 250m
             } else {
                 flippableItems = masterFlippableItems
                     .filter(item => {
                         const price = item.priceInfo.low;
                         const minPrice = budget > 1000000 ? budget * 0.01 : 1; // Only show items >1% of budget if budget is >1m
                         return price <= budget && price >= minPrice;
-                    })
-                    .map(item => item.itemInfo);
+                    });
             }
             
             if (flippableItems.length === 0 && masterFlippableItems.length > 0) {
@@ -722,7 +737,7 @@
             if (flippableItems.length === 0) return; 
             const item = flippableItems[Math.floor(Math.random() * flippableItems.length)];
             if (item) {
-                fetchAllData(item.name);
+                fetchAllData(item.itemInfo.name);
             }
         }
 
@@ -813,22 +828,27 @@
                 return;
             }
 
-            // If there's only one item in the list, we can't pick a different one.
-            if (flippableItems.length === 1 && lastSuggestedItem && flippableItems[0].name === lastSuggestedItem.name) {
-                showError("Only one profitable item for this budget is available.");
-                return;
+            // Prioritize the top 20 items, providing a mix of high-quality suggestions and variety.
+            const topTierSize = 20;
+            const suggestionPool = flippableItems.slice(0, topTierSize);
+
+            // Filter out the last suggested item to avoid immediate repeats, if possible.
+            let potentialSuggestions = suggestionPool;
+            if (lastSuggestedItem && suggestionPool.length > 1) {
+                potentialSuggestions = suggestionPool.filter(item => item.itemInfo.id !== lastSuggestedItem.itemInfo.id);
+                 // If filtering removed all options (e.g., only one top item), fall back to the original pool
+                if (potentialSuggestions.length === 0) {
+                    potentialSuggestions = suggestionPool;
+                }
             }
 
-            let item;
-            // Keep picking a random item until it's different from the last suggested one.
-            do {
-                item = flippableItems[Math.floor(Math.random() * flippableItems.length)];
-            } while (lastSuggestedItem && item.name === lastSuggestedItem.name && flippableItems.length > 1);
+            // Pick a random item from the high-quality pool.
+            const item = potentialSuggestions[Math.floor(Math.random() * potentialSuggestions.length)];
 
             if (item) {
-                lastSuggestedItem = item; // Remember the item we just suggested
-                itemNameInput.value = item.name;
-                fetchAllData(item.name);
+                lastSuggestedItem = item; // Remember the full item object
+                itemNameInput.value = item.itemInfo.name;
+                fetchAllData(item.itemInfo.name);
             }
         }
 
@@ -1603,6 +1623,5 @@
     </script>
 </body>
 </html>
-
 
 
