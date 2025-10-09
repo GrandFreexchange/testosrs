@@ -423,6 +423,7 @@
                     <div>
                         <label for="advanced-sort" class="block text-sm font-medium text-secondary mb-1">Sort by:</label>
                         <select id="advanced-sort" class="w-full p-2 rounded-md calc-input focus:outline-none focus-accent">
+                            <option value="profit_volume">Profit x Volume</option>
                             <option value="profit">Profit (High to Low)</option>
                             <option value="volume">Volume (High to Low)</option>
                             <option value="margin">Margin % (High to Low)</option>
@@ -537,7 +538,7 @@
         let flippableItems = []; // Holds the current budget-filtered list
         let isApiThrottled = false; // Flag to prevent API spam
         let isAdvancedMode = false; // Flag to track current view mode
-        let advancedSortState = { column: 'profit', direction: 'desc' };
+        let advancedSortState = { column: 'profit_volume', direction: 'desc' };
         
         // Custom budget steps for the slider
         const budgetSteps = [
@@ -616,17 +617,68 @@
                 
                 let originalItemMapping = await response.json();
 
-                // Expanded list of item IDs to exclude for Deadman Mode, Leagues, etc.
+                // A definitive and comprehensive list of all non-main game tradeable items.
                 const excludedIds = new Set([
-                    // Deadman & Ancient Warrior's Equipment
-                    22613, 22616, 22610, 22619, 22622, 22625, 22628, 22631, 
-                    22647, 22638, 22641, 22644, 22636, 22634, 12404, 12411, 
-                    12418, 13923, 13929, 13941, 13953, 13957, 24617, 27468,
-                    27471, 27474, 27477,
-                    // Leagues Rewards
-                    24422, 24423, 24424, 25016, 25017, 25018, 25019, 25020, 
-                    25021, 25022, 25023, 25024, 25025, 25026, 25027, 26364, 
-                    26366, 26368, 26374, 26376, 26378
+                    // --- Deadman Mode & Ancient Warrior's Equipment ---
+                    22610, 22613, 22616, 22619, // Vesta's
+                    22622, 22625, 22628, 22631, // Statius's
+                    22638, 22641, 22644, 22647, // Zuriel's
+                    22634, 22636,              // Morrigan's
+                    12404, 12411, 12418, 13923, 13929, 13941, 13953, 13957, // Corrupted
+                    24617, 27468, 27471, 27474, 27477, 20561, 20562, 20563, // DMM/BH Variants
+                    27648, // Armageddon weapon scroll
+
+                    // --- Blighted Items (Wilderness/LMS only) ---
+                    24599, 24596, 24593, 25883, 25885, 24602, 24605, 24608, 24611, 24614,
+
+                    // --- Leagues Rewards (Cosmetics & Trophies) ---
+                    // Twisted League (I)
+                    24420, // Twisted banner
+                    24422, // Twisted horns
+                    24423, // Twisted buckler
+                    24424, // Twisted ancestral colour kit
+                    24419, // Twisted league teleport scroll
+                    24425, 24426, 24427, // Twisted outfit pieces
+                    24548, 24551, 24554, // Twisted outfit sets
+                    // Trailblazer League (II)
+                    25014, // Trailblazer banner
+                    25016, // Trailblazer globe (trophy)
+                    25017, 25018, 25019, 25020, 25021, 25022, // Trailblazer graceful ornament kit
+                    25023, // Trailblazer rune pouch ornament kit
+                    25024, 25025, 25026, 25027, // Trailblazer dragon tool ornament kit
+                    25028, // Trailblazer league teleport scroll
+                    25088, // Trailblazer cane
+                    // Shattered Relics League (III)
+                    26362, // Shattered banner
+                    26364, 26366, 26368, // Relic hunter outfit pieces
+                    26382, 26384, 26386, // Relic hunter outfit sets
+                    26372, // Shattered relics home teleport
+                    26374, // Dwarven multicannon ornament kit
+                    26376, // Void knight ornament kit
+                    26378, // Mystic ornament kit
+                    26380, // Weapon variety ornament kit
+                    26541, // Shattered relics mystic ornament kit (alternative ID)
+                    // Trailblazer Reloaded League (IV / Raging Echoes)
+                    28528, // Trailblazer reloaded banner
+                    28530, // Trailblazer reloaded home teleport scroll
+                    28532, // Trailblazer reloaded pillar
+                    28533, // Trailblazer reloaded trophy
+                    28535, 28537, 28539, // Relic hunter outfit pieces (reloaded)
+                    28595, 28597, 28599, // Relic hunter outfit sets (reloaded)
+                    28541, // Trailblazer reloaded dragon tool ornament kit
+                    28543, 28545, 28547, 28549, 28551, 28553, // Trailblazer reloaded graceful ornament kit
+                    28555, // Trailblazer reloaded rune pouch ornament kit
+                    28557, // Trailblazer reloaded teleport scroll
+                    28676, // Trailblazer reloaded venator ornament kit
+                    28678, // Trailblazer reloaded ahrim's ornament kit
+                    28680, // Trailblazer reloaded virtus ornament kit
+                    28682, // Trailblazer reloaded zaryte ornament kit
+                    28684, // Trailblazer reloaded bulwark ornament kit
+                    28686, // Trailblazer reloaded masori ornament kit
+
+                    // --- Bounty Hunter & Other ---
+                    21255, // Vesta's longsword (bh) - another variant
+                    12746, 12748, 12749, 12750, 12751, 12752, 12753, 12754, 12755, 12756 // Bounty Hunter Emblems
                 ]);
 
                 itemMapping = originalItemMapping.filter(item => !excludedIds.has(item.id));
@@ -653,7 +705,7 @@
             }
         }
 
-        // Fetches high volume items and ranks them by profitability score
+        // Fetches high volume items and ranks them by a new flip score
         async function loadFlippableItems() {
             suggestItemBtn.disabled = true;
             suggestItemBtn.textContent = 'Analyzing Market...';
@@ -667,8 +719,8 @@
 
                 const volumesData = await volumesRes.json();
                 const latestData = await latestRes.json();
-                latestPriceData = latestData.data; // Store latest prices globally
-                allVolumesData = volumesData.data; // Store all volumes globally
+                latestPriceData = latestData.data;
+                allVolumesData = volumesData.data;
 
                 const allTradedItems = Object.keys(volumesData.data);
 
@@ -677,7 +729,6 @@
                     const priceInfo = latestPriceData[id];
                     const dailyVolume = allVolumesData[id];
 
-                    // Allow low-volume items if they are very expensive (>250m)
                     if (!itemInfo || !priceInfo || !priceInfo.high || !priceInfo.low || !dailyVolume || priceInfo.low === 0) {
                         return null;
                     }
@@ -687,17 +738,17 @@
                     const geTax = Math.floor(priceInfo.high * taxRate);
                     const netProfit = (priceInfo.high - priceInfo.low) - geTax;
 
-                    if (netProfit <= 0) return null; // Exclude non-profitable items immediately
-
+                    if (netProfit <= 0) return null;
+                    
+                    // NEW FORMULA: Prioritizes total profit potential
                     const flipScore = netProfit * dailyVolume;
 
                     return { itemInfo, priceInfo, flipScore };
-                }).filter(Boolean); // Remove null entries
+                }).filter(Boolean);
 
-                // Sort by the calculated flip score
                 scoredItems.sort((a, b) => b.flipScore - a.flipScore);
 
-                masterFlippableItems = scoredItems; // Store the full ranked list
+                masterFlippableItems = scoredItems;
 
             } catch (error) {
                 console.error("Could not load flippable items:", error);
@@ -1296,9 +1347,9 @@
             };
             
             const getVolume = item => {
-                if (!showAll) {
-                    const profit = getProfit(item);
-                    return profit > 0 ? Math.floor(item.flipScore / profit) : 0;
+                const profit = getProfit(item);
+                if ('flipScore' in item && item.flipScore > 0 && profit > 0) {
+                    return Math.floor(item.flipScore / profit);
                 } else {
                     return allVolumesData[item.itemInfo.id] || 0;
                 }
@@ -1313,6 +1364,7 @@
             filteredItems.sort((a, b) => {
                 let valA, valB;
                 switch (advancedSortState.column) {
+                    case 'profit_volume': valA = a.flipScore || 0; valB = b.flipScore || 0; break;
                     case 'profit': valA = getProfit(a); valB = getProfit(b); break;
                     case 'volume': 
                          valA = getVolume(a); 
@@ -1623,5 +1675,4 @@
     </script>
 </body>
 </html>
-
 
