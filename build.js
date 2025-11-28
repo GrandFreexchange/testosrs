@@ -278,9 +278,7 @@ async function build() {
                     const itemLatest = latest[item.id] || { high: 0, low: 0 };
                     const itemVolume = volumes[item.id] || 0;
                     
-                    // Skip items with no price data
-                    if (itemLatest.high === 0 && itemLatest.low === 0) continue;
-                    
+                    // Generate page for all items (will show placeholder if no price data)
                     const html = generateItemHTML(item, itemLatest, itemVolume);
                     const slug = nameToSlug(item.name);
                     const filePath = path.join(OUTPUT_DIR, `${slug}.html`);
@@ -336,19 +334,12 @@ function generateSitemap(items, latest) {
 `;
 
     for (const item of items) {
-        const itemLatest = latest[item.id];
-        if (!itemLatest || (itemLatest.high === 0 && itemLatest.low === 0)) continue;
-        
         const slug = nameToSlug(item.name);
         sitemap += `    <url>
         <loc>${baseUrl}/items/${slug}.html</loc>
         <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.8</priority>
-        <image:image>
-            <image:loc>https://oldschool.runescape.wiki/images/Coins_10000.png</image:loc>
-            <image:title>${item.name}</image:title>
-        </image:image>
     </url>
 `;
     }
